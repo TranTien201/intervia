@@ -1,0 +1,47 @@
+/* Intervia design tokens — "Sương lam" palette (docs/design/ui.md §2). Light only for MVP-1.
+   Never use pure white (#FFFFFF) as a surface; white is only allowed as text on --accent. */
+:root {
+  --bg: #e8edef;
+  --surface: #f3f6f7;
+  --subtle: #dce4e7;
+  --line: #cdd7db;
+  --ink: #26343a;
+  --ink2: #56666d;
+  --accent: #3a6770;
+  --accent-soft: #d8e6e9;
+  --accent-strong: #30565e;
+  --ai: #5b5f86;
+  --ai-soft: #e2e3ee;
+  --amber: #7f5e2a;
+  --amber-soft: #efe6d4;
+  --ok: #436a4d;
+  --ok-soft: #dce9e0;
+  --danger: #9a4b41;
+  --danger-soft: #f0dfdb;
+
+  --font-ui: 'Be Vietnam Pro', 'Segoe UI', system-ui, -apple-system, sans-serif;
+  --font-code: 'JetBrains Mono', ui-monospace, 'SF Mono', Menlo, monospace;
+  --shadow-card: 0 1px 2px rgb(20 30 28 / 0.05), 0 4px 12px rgb(20 30 28 / 0.04);
+  --radius: 10px;
+
+  /* shadcn/ui variables, pointed at Intervia tokens */
+  --background: var(--bg);
+  --foreground: var(--ink);
+  --card: var(--surface);
+  --card-foreground: var(--ink);
+  --popover: var(--surface);
+  --popover-foreground: var(--ink);
+  --primary: var(--accent);
+  --primary-foreground: #ffffff;
+  --secondary: var(--subtle);
+  --secondary-foreground: var(--ink);
+  --muted: var(--subtle);
+  --muted-foreground: var(--ink2);
+  --accent-shadcn: var(--accent-soft);
+  --destructive: var(--danger);
+  --border: var(--line);
+  --input: var(--line);
+  --ring: var(--accent);
+
+  color-scheme: light;
+}
