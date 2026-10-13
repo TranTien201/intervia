@@ -6,3 +6,8 @@ Adaptive AI Interviewer & Personalized Interview Coach — Detailed Project Repo
 .DS_Store
 .idea/
 .vscode/
+
+# Secrets and personal data (CV = PII)
+.env
+data/
+backend/.spike/
