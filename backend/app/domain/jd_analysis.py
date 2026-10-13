@@ -12,10 +12,13 @@ from typing import Any
 
 from app.domain.quotes import QuoteChecker, normalize
 from app.domain.text import TEXT_MAX, shorten
+from app.schemas.analysis import NAME_MAX
 from app.schemas.extraction import JdExtraction, JdRequirementItem
 from app.schemas.jd import JdRequirements, Requirement
 
 NAME_FROM_TEXT_MAX = 80  # requirement name taken from the bullet itself when the label is empty
+# A longer name would make the user's next save fail (`check_requirements` rejects it).
+REQUIREMENT_NAME_MAX = NAME_MAX
 META_MAX = 120  # company / position shown in the library
 # JdRequirements.requirements max_length; a longer list is cut, never rejected.
 REQUIREMENTS_MAX = JdRequirements.model_fields["requirements"].metadata[0].max_length
@@ -84,7 +87,8 @@ def build_requirements(extraction: JdExtraction, jd_text: str) -> tuple[JdRequir
             continue
         first = items[0]
         text = first.text.strip()
-        name = shorten(first.name.strip(), TEXT_MAX) or shorten(text, NAME_FROM_TEXT_MAX)
+        name = shorten(first.name.strip(), REQUIREMENT_NAME_MAX)
+        name = name or shorten(text, NAME_FROM_TEXT_MAX)
         found = in_jd(text)
         if not found:
             meta.quotes_not_found += 1

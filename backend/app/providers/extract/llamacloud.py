@@ -9,6 +9,7 @@ import asyncio
 import logging
 import time
 from collections.abc import Awaitable, Callable
+from functools import partial
 from pathlib import PurePath
 from typing import Any, TypeVar
 
@@ -122,7 +123,9 @@ class LlamaCloudExtractor:
             job = await _call(
                 self._client.extract.create(file_input=file.id, configuration=configuration)
             )
-            created.append(("extract job", self._client.extract.delete, job.id))
+            # `force`: a job still running (timeout, shutdown) is otherwise refused with 409.
+            delete_job = partial(self._client.extract.delete, force=True)
+            created.append(("extract job", delete_job, job.id))
             await self._wait(job.id)
 
             done = await _call(

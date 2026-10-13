@@ -48,6 +48,10 @@ class FakeLlamaCloud:
     def handle(self, request: httpx.Request) -> httpx.Response:
         method, path = request.method, request.url.path
         if method == "DELETE":
+            # Like LlamaCloud: an unfinished extract job is deleted only with `force=true`.
+            running = path.startswith("/api/v2/extract/") and self.job_status == "RUNNING"
+            if running and request.url.params.get("force") != "true":
+                return httpx.Response(409, json={"detail": "Cannot delete job in status RUNNING"})
             self.deleted.append(path)
             return httpx.Response(200, json={})
         if (method, path) == ("POST", "/api/v1/beta/files"):

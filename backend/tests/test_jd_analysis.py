@@ -7,6 +7,7 @@ from pydantic import ValidationError
 
 from app.domain.jd_analysis import (
     NAME_FROM_TEXT_MAX,
+    REQUIREMENT_NAME_MAX,
     REQUIREMENTS_MAX,
     build_requirements,
     parse_jd_extraction,
@@ -115,6 +116,15 @@ def test_empty_name_taken_from_text() -> None:
     assert len(names[1]) <= NAME_FROM_TEXT_MAX
     assert names[1].endswith("…") and long_text.startswith(names[1][:-1])
     assert meta.empty == 1
+
+
+def test_long_name_shortened_to_what_a_save_accepts() -> None:
+    # A real JD gave a 139-character label, which then failed every save of that JD (BE-4.8).
+    long_name = "Bachelor's degree in Computer Science, Artificial Intelligence, Robotics " * 3
+    result, _ = build_requirements(jd([req(long_name, "Thiết kế API")]), JD_TEXT)
+    name = result.requirements[0].name
+    assert len(name) <= REQUIREMENT_NAME_MAX
+    assert name.endswith("…") and long_name.startswith(name[:-1])
 
 
 def test_importance_clamped() -> None:
