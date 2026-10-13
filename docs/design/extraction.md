@@ -100,7 +100,7 @@ LlamaExtract trả về dữ liệu thô theo schema mục 2–3 (`CvExtraction`
 |---|---|---|
 | Thư viện: "Backend Engineer · Công ty ABC" | `JdSummary.position`, `company` | `position`, `company` |
 | Thư viện: "5 yêu cầu" | `JdSummary.requirement_count` | số yêu cầu |
-| Trang 9: văn bản JD | `JdDetail.text` | text dán, hoặc text LlamaExtract đọc từ file |
+| Trang 9: văn bản JD | `JdDetail.text` | text dán, hoặc chữ backend tự đọc từ file PDF/DOCX ngay khi tải lên (`app/documents.py`, không gọi LlamaCloud) |
 | Dòng yêu cầu: tên | `Requirement.name` | `requirements[].name` |
 | Dòng yêu cầu: câu gốc | `Requirement.source_quote` | `requirements[].text` (code kiểm tra có trong JD; không có thì `null`) |
 | Nhãn Bắt buộc / Nên có | `Requirement.kind` | `requirements[].kind` |

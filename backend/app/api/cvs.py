@@ -12,6 +12,7 @@ from pymongo.asynchronous.database import AsyncDatabase
 
 from app.api.deps import current_user, get_db
 from app.api.errors import AppError
+from app.api.uploads import read_upload
 from app.db import cvs
 from app.domain import files, library, versions
 from app.schemas.analysis import VersionInfo
@@ -22,8 +23,6 @@ router = APIRouter(tags=["cvs"])
 
 Db = Annotated[AsyncDatabase, Depends(get_db)]
 CurrentUser = Annotated[User, Depends(current_user)]
-
-_CHUNK = 1024 * 1024
 
 
 class RenameBody(BaseModel):
@@ -40,18 +39,6 @@ async def _get_cv(db: AsyncDatabase, user: User, cv_id: str) -> CvRecord:
     if cv is None:
         raise AppError("not_found", 404, "Không tìm thấy CV.")
     return cv
-
-
-async def _read_limited(upload: UploadFile, limit: int) -> bytes:
-    """Read in chunks and stop as soon as the size passes `limit`."""
-    chunks: list[bytes] = []
-    size = 0
-    while chunk := await upload.read(_CHUNK):
-        size += len(chunk)
-        if size > limit:
-            raise AppError("file_too_large", 413, "File lớn hơn 5 MB.")
-        chunks.append(chunk)
-    return b"".join(chunks)
 
 
 @router.get("/cvs")
@@ -80,10 +67,7 @@ async def upload_cv(
         raise AppError("validation_error", 422, "Dữ liệu chưa hợp lệ.", fields)
     assert file is not None and clean_name is not None and clean_mode is not None
 
-    data = await _read_limited(file, files.MAX_FILE_SIZE)
-    content_type = files.detect_content_type(data)
-    if content_type is None:
-        raise AppError("unsupported_file", 415, "Chỉ nhận file PDF hoặc DOCX.")
+    data, content_type = await read_upload(file)
 
     cv = await cvs.create_cv(
         db,

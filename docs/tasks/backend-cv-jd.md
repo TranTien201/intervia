@@ -681,9 +681,7 @@ def build_requirements(extraction: JdExtraction, jd_text: str) -> tuple[JdRequir
 
 **Tải JD bằng file** (`POST /api/jds`, multipart `name`, `file`):
 1. Kiểm tra `name`, kích thước, loại file y như CV (2.2): 413 / 415 / 422.
-2. `text = read_text(...)` (bộ đọc tại chỗ `app/documents.py`, BE-4.4) **ngay trong request**; `looks_readable = False` → 422 `no_text_in_file`.
-   - `ExtractorError("no_text")` hoặc text rỗng sau khi bỏ khoảng trắng → 422 `no_text_in_file`.
-   - Hết giờ / lỗi provider → 502 `llm_error`.
+2. `text = read_text(...)` (bộ đọc tại chỗ `app/documents.py`, BE-4.4) **ngay trong request**; `looks_readable = False` hoặc text rỗng → 422 `no_text_in_file`. Không gọi provider trong request, nên không có 502 (lỗi provider chỉ xảy ra ở bước phân tích nền, báo qua `AnalysisProgress`, 4.7). Chế độ `precise` cũng đọc chữ tại chỗ; JD scan thì người dùng dán nội dung.
 3. Chuẩn hóa text như JD dán (2.3); dài quá 20 000 ký tự → 422 `validation_error`, `fields.file` ("JD dài quá 20 000 ký tự…").
 4. Lưu như JD dán. **Không lưu file gốc.** Phân tích nền như JD dán (4.7).
 
@@ -693,10 +691,10 @@ def build_requirements(extraction: JdExtraction, jd_text: str) -> tuple[JdRequir
 - Hai mục trùng hoàn toàn (một `required`, một `preferred`) → còn một, `required`, `importance` lớn nhất.
 - `name` rỗng → lấy từ `text` đã cắt.
 - `importance` ngoài 1–3 bị ép lại.
-- Tải file (adapter giả): thành công → 201, `JdDetail.text` đúng; file scan → 422 `no_text_in_file`; text quá dài → 422 `fields.file`; provider lỗi → 502 `llm_error`.
+- Tải file: thành công → 201, `JdDetail.text` đúng; file scan → 422 `no_text_in_file`; text quá dài → 422 `fields.file`. (Bỏ ca "provider lỗi → 502": bước tải file không gọi provider.)
 
 **Output / xong khi:**
-- [ ] Hàm + nhánh tải file, test qua.
+- [x] Hàm + nhánh tải file, test qua.
 
 ---
 

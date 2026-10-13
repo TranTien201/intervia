@@ -12,12 +12,12 @@ from dataclasses import dataclass
 from typing import Any
 
 from app.domain.quotes import QuoteChecker, normalize
+from app.domain.text import TEXT_MAX, shorten
 from app.providers.extract.base import Citation
 from app.schemas.cv import CandidateProfile, Claim, Experience, Skill
 from app.schemas.extraction import CvExtraction, ExperienceItem, SkillItem
 
 STATEMENT_MAX = 200  # claim statement taken from the bullet itself when the extractor gave none
-TEXT_MAX = 1000  # `Text` limit of every profile string; a longer bullet is cut, not rejected
 _CURRENT = "nay"
 
 # A citation that is only a field path ("experiences.0.kind") instead of document text; seen
@@ -90,7 +90,7 @@ def build_profile(
             if highlight.kind == "task":
                 continue
             quote = highlight.text.strip()
-            statement = _shorten((highlight.statement or "").strip(), TEXT_MAX) or _shorten(
+            statement = shorten((highlight.statement or "").strip(), TEXT_MAX) or shorten(
                 quote, STATEMENT_MAX
             )
             if not statement:
@@ -109,7 +109,7 @@ def build_profile(
                     metric=_blank_to_none(highlight.metric),
                     subject=_blank_to_none(highlight.subject),
                     verifiable=highlight.kind == "metric",
-                    source_quote=_shorten(quote, TEXT_MAX),
+                    source_quote=shorten(quote, TEXT_MAX),
                     quote_status="found" if found else "not_found",
                 )
             )
@@ -206,16 +206,6 @@ def _unique(names: list[str]) -> list[str]:
             seen.add(key)
             out.append(name.strip())
     return out
-
-
-def _shorten(text: str, limit: int) -> str:
-    """Cut at a word boundary, adding '…' when cut."""
-    if len(text) <= limit:
-        return text
-    cut = text[: limit - 1]
-    if " " in cut and not text[limit - 1].isspace():
-        cut = cut.rsplit(" ", 1)[0]
-    return cut.rstrip(" ,;:-") + "…"
 
 
 def _blank_to_none(value: str | None) -> str | None:

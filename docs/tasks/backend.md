@@ -49,7 +49,8 @@
 - [x] BE-4.4. Lớp provider trích xuất
 - [x] BE-4.5. Chuyển kết quả CV thành hồ sơ (A1)
   - **Đã xong (2026-10-13):** `app/domain/quotes.py` (`normalize`, `quote_found`, `QuoteChecker`: NFC, gạch đầu dòng, dấu nháy, gạch ngang, `*` Markdown, khoảng trắng, chữ hoa), `app/domain/profiling.py` (`build_profile` → `CandidateProfile` + `ProfileStats`; `parse_cv_extraction` coi danh sách thiếu khóa là `[]`). Khác đặc tả: trích dẫn của LlamaCloud chỉ được dùng khi khớp chữ tài liệu (spike câu 7); dự án làm cho công ty hiện "Tên dự án (Công ty)"; `period` ghép thành `MM/YYYY – nay`. Test: `tests/test_quotes.py`, `tests/test_profiling.py` (dùng `fake_data/cv_basic.json`). **Còn nợ từ BE-4.3:** chưa có fixture CV thật đã che trong `tests/fixtures/extraction/`; đã kiểm tra bằng mắt trên kết quả spike trong `.spike/out/` (không đưa vào git).
-- [ ] BE-4.6. Phân tích JD (A2) và tải JD bằng file
+- [x] BE-4.6. Phân tích JD (A2) và tải JD bằng file
+  - **Đã xong (2026-10-13):** `app/domain/jd_analysis.py` (`parse_jd_extraction`: danh sách thiếu khóa coi là `[]`, `importance` ngoài 1–3 bị ép lại thay vì làm hỏng cả JD; `build_requirements` → `JdRequirements` + `JdMeta` gồm `company`, `position`, `requirement_count` và số liệu an toàn để log). Trùng hoàn toàn = cùng `name` và `text` sau `normalize`; quá 100 yêu cầu thì cắt (giới hạn của `JdRequirements`). `POST /api/jds` multipart: đọc chữ tại chỗ trong request, không lưu file gốc; Content-Type khác JSON/multipart → 415. Tách sẵn dùng chung: `app/api/uploads.py` (`read_upload`: 413/415, CV dùng chung), `app/domain/text.py` (`shorten`). Khác đặc tả: bỏ "lỗi provider → 502" vì bước tải file không gọi provider. Test: `tests/test_jd_analysis.py`, `tests/test_jds_api.py`.
 - [ ] BE-4.7. Chạy phân tích nền và báo tiến trình
 - [ ] BE-4.8. Nối web với backend thật và cập nhật tài liệu
 
