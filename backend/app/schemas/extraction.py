@@ -17,7 +17,7 @@ from typing import Any, Literal
 from pydantic import BaseModel, Field
 
 CV_SCHEMA_VERSION = "cv-1"
-JD_SCHEMA_VERSION = "jd-1"
+JD_SCHEMA_VERSION = "jd-2"
 
 DocLanguage = Literal["vi", "en", "mixed"]
 
@@ -282,13 +282,16 @@ class JdRequirementItem(BaseModel):
         description=(
             "Short label of at most 8 words made only by shortening the JD's own wording, same "
             "language, e.g. 'PostgreSQL, tối ưu truy vấn'. Never rename to other words, never "
-            "merge several requirements into one label."
+            "merge several requirements into one label. For a list of alternatives where one is "
+            "enough, one label for the whole list, e.g. 'message queue như Kafka, RabbitMQ'."
         )
     )
     text: str = Field(
         description=(
-            f"The JD bullet this requirement comes from. {_VERBATIM} When one bullet lists "
-            "several independent skills, each resulting requirement repeats the same text."
+            f"The JD bullet this requirement comes from. {_VERBATIM} When one bullet holds "
+            "several requirements, each of them repeats the same text. Alternatives where one "
+            "is enough ('A, B, or C', 'at least one of', 'such as', 'một trong', 'hoặc') are "
+            "one requirement, not one per item."
         )
     )
     kind: Literal["required", "preferred"] = Field(

@@ -190,11 +190,13 @@ def test_nested_required_and_enums_enforced():
         JdExtraction.model_validate(bad)
 
 
-@pytest.mark.parametrize("name", ["cv_extract", "jd_extract"])
-def test_load_prompt(name):
+@pytest.mark.parametrize(
+    ("name", "latest"), [("cv_extract", "cv_extract_v1"), ("jd_extract", "jd_extract_v2")]
+)
+def test_load_prompt(name, latest):
     prompt = load_prompt(name)
     assert prompt.text.strip()
-    assert prompt.version == f"{name}_v1"
+    assert prompt.version == latest  # highest _vN wins
 
 
 def test_load_prompt_unknown():
