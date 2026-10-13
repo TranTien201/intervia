@@ -7,6 +7,7 @@ IDs are UUID strings stored in `_id` (the API contract uses UUID strings).
 
 import logging
 from collections.abc import Awaitable, Callable
+from datetime import UTC, datetime
 
 from pymongo import AsyncMongoClient
 from pymongo.asynchronous.database import AsyncDatabase
@@ -28,6 +29,13 @@ def create_client(settings: Settings) -> AsyncMongoClient:
         uuidRepresentation="standard",
         serverSelectionTimeoutMS=settings.mongodb_timeout_ms,
     )
+
+
+def utcnow() -> datetime:
+    """Now in UTC, cut to milliseconds (all MongoDB stores), so a returned record equals the
+    stored one."""
+    now = datetime.now(UTC)
+    return now.replace(microsecond=now.microsecond // 1000 * 1000)
 
 
 async def ensure_indexes(db: AsyncDatabase) -> None:

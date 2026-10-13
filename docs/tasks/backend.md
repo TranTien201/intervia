@@ -15,12 +15,14 @@
 
 ## BE-1. Mô hình dữ liệu
 - [x] Collection `users`: `_id` (UUID chuỗi) là `user_id` mà mọi collection khác trỏ tới; `email` lưu chữ thường, **unique index** `email_unique` (chặn trùng email kể cả khi hai lần đăng ký chạy cùng lúc); `password_hash`, `created_at`, `updated_at`, `schema_version`. Repository `app/db/users.py`: `create_user` (trùng email → `email_taken` 409), `get_user`, `get_user_by_email`. Index đăng ký trong `app/db/__init__.py`. Test: `tests/test_users.py`. (2026-10-12)
+- [x] Collection `cvs`, `cv_versions`, `jds`, `jd_versions`, GridFS `cv_files` (BE-2.1, 2026-10-13). Index: `cvs`/`jds` `user_updated` (`user_id`, `updated_at` giảm dần), `analysis_status`; `cv_versions`/`jd_versions` **unique** `cv_version_unique`/`jd_version_unique` (`cv_id`/`jd_id`, `version`), `user_id`. **Quy tắc `latest_version`:** nguồn sự thật là `max(version)` trong `*_versions`; `cvs.latest_version` / `jds.latest_version` (và `jds.requirement_count`) là bản sao, chỉ tăng, cập nhật **sau khi** chèn phiên bản. Bản ghi `deleting = true` bị ẩn khỏi mọi lần đọc.
 - [ ] Collection `sessions` (tham chiếu bản CV/JD, trạng thái, bước hiện tại), `blueprints`, `questions`, `answers` (bản STT gốc + bản sửa + segment có timestamp), `session_events`, `llm_calls`; file audio lưu bằng GridFS. Mọi document gắn `user_id` (có index). (`cvs`, `cv_versions`, `jds`, `jd_versions`: xem BE-2.1.)
 - [ ] Khóa đầu vào khi phiên đã bắt đầu; xóa CV/JD xóa kèm phiên và file audio.
 
 ## BE-2. Thư viện CV & JD (chưa cần AI)
 **Chi tiết từng task (việc, file, quy tắc, test, output): `backend-cv-jd.md`.** Thứ tự làm cả nhóm CV/JD ở mục 1 của file đó. BE-3 không chặn nhóm này (A1, A2 dùng LlamaExtract).
-- [ ] BE-2.1. Schema và collection CV/JD (`cvs`, `cv_versions`, `jds`, `jd_versions`, GridFS `cv_files`)
+- [x] BE-2.1. Schema và collection CV/JD (`cvs`, `cv_versions`, `jds`, `jd_versions`, GridFS `cv_files`)
+  - **Đã xong (2026-10-13):** schema `app/schemas/analysis.py` (dùng chung: `AnalysisState`, `VersionInfo`, `AnalysisProgress`, giới hạn chuỗi 1 000 ký tự), `cv.py`, `jd.py` (type API + bản ghi DB `CvRecord`, `CvVersionRecord`, `JdRecord`, `JdVersionRecord`); repository `app/db/cvs.py`, `jds.py` (kèm các bước xóa cho BE-2.5); `utcnow()` trong `app/db/mongo.py` (cắt về ms). `analysis` có thêm `mode` (chế độ trích xuất). File GridFS dùng UUID chuỗi làm `_id`. Test: `tests/test_cvs_repo.py`, `test_jds_repo.py`.
 - [ ] BE-2.2. API tải lên và quản lý CV
 - [ ] BE-2.3. API thêm và quản lý JD (dán text)
 - [ ] BE-2.4. Phiên bản hồ sơ và yêu cầu
