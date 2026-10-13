@@ -1,6 +1,6 @@
 # Trích xuất CV và JD: trích gì, không trích gì
 
-- Cập nhật: 2026-10-13 (bỏ competency catalog, bỏ khối Đối chiếu)
+- Cập nhật: 2026-10-13 (bỏ competency catalog, bỏ khối Đối chiếu; khớp với code sau BE-4)
 - Vai trò: A1 CV Profiler, A2 JD Analyzer (`agents.md` mục 3).
 - Công cụ: **LlamaExtract (LlamaCloud)** cho cả đọc file (có OCR) lẫn trích xuất theo schema. Các vai trò sau (A3 trở đi) dùng LLM khác.
 - Task triển khai: `docs/tasks/backend-cv-jd.md`.
@@ -13,7 +13,7 @@
 4. **Code tính phần còn lại:** tổng số năm kinh nghiệm, danh sách claim, gộp kỹ năng trùng.
 5. **Không map vào danh sách chủ đề cố định (catalog).** Trích tự do theo đúng chữ trong tài liệu, nên dùng được cho mọi ngành. Việc so CV với JD (yêu cầu nào CV đã có, yêu cầu nào thiếu) do A3 làm lúc lập kế hoạch, vì A3 đọc cả hai (mục 5).
 6. **Không trích dữ liệu cá nhân không cần cho phỏng vấn.** CV là PII; thứ không trích thì không phải lưu, không phải bảo vệ.
-7. **Mọi mục có trích dẫn nguyên văn** (`cite_sources` của LlamaExtract với CV; JD dán text thì code tự so với chữ gốc). Không có trích dẫn thì giao diện cảnh báo màu hổ phách.
+7. **Mọi mục cố gắng có trích dẫn nguyên văn** (`cite_sources` của LlamaExtract với CV; JD thì code tự so với chữ gốc). Code chỉ giữ trích dẫn tìm thấy trong chữ tài liệu, và **không loại mục vì thiếu trích dẫn**: kỹ năng, kinh nghiệm, yêu cầu JD để `source_quote: null`; claim giữ với `quote_status: "not_found"` và giao diện cảnh báo màu hổ phách (mục 4.1).
 
 ## 2. CV
 
@@ -133,8 +133,8 @@ Dữ liệu mẫu (`web/src/mocks/seed.ts`) có vài chỗ đi ngược quy tắ
 
 ## 7. Còn mở
 
-- **Gói LlamaExtract:** chạy thử 2026-10-13 (`docs/spikes/llamaextract.md`): gói `cost_effective` vẫn có `cite_sources`. Đề xuất: backend tự đọc chữ (PDF/DOCX) rồi gửi `.txt` với gói `cost_effective` (không có phí parse; CV 4 trang 25 credit thay vì 100 của `agentic`, chất lượng tương đương trên bộ thử), dự phòng gửi file gốc khi là CV scan hoặc lỗi font. Chốt sau khi chạy đủ bộ thử.
-- **Giới hạn schema của LlamaExtract** (tài liệu "Schema Design and Restrictions", kiểm tra 2026-10-13): root phải là `object`; lồng tối đa 7 tầng (khuyên 3–4); tối đa 5.000 thuộc tính, 120.000 ký tự chuỗi, 150.000 ký tự JSON; chỉ đọc tên khóa, `type`, `description` (không hỗ trợ `default`, định dạng); thiếu `required` thì mọi trường thành bắt buộc; `anyOf` + `null` dùng cho trường nullable; `$ref` được bung ra. Schema hiện tại (`cv-1`, `jd-1`) lồng 5 tầng (`experiences[].highlights[]`), khoảng 10.000 ký tự: **không có giới hạn ảnh hưởng**, giữ nguyên cấu trúc mục 2–3. `enum` (từ `Literal`): server chấp nhận và kết quả tuân thủ (spike BE-4.3).
+- **Gói LlamaExtract:** đã chốt 2026-10-13: người dùng chọn chế độ (mục 8), mặc định Tiêu chuẩn (backend tự đọc chữ, gửi `.txt`, gói `cost_effective`). Còn nợ: chạy đủ bộ thử (CV scan, 2 cột, tiếng Việt, DOCX, JD tiếng Việt) để kiểm tra lại mặc định, xem `docs/tasks/backend.md` BE-4.3.
+- **Giới hạn schema của LlamaExtract** (tài liệu "Schema Design and Restrictions", kiểm tra 2026-10-13): root phải là `object`; lồng tối đa 7 tầng (khuyên 3–4); tối đa 5.000 thuộc tính, 120.000 ký tự chuỗi, 150.000 ký tự JSON; chỉ đọc tên khóa, `type`, `description` (không hỗ trợ `default`, định dạng); thiếu `required` thì mọi trường thành bắt buộc; `anyOf` + `null` dùng cho trường nullable; `$ref` được bung ra. Schema hiện tại (`cv-1`, `jd-2`) lồng 5 tầng (`experiences[].highlights[]`), khoảng 10.000 ký tự: **không có giới hạn ảnh hưởng**, giữ nguyên cấu trúc mục 2–3. `enum` (từ `Literal`): server chấp nhận và kết quả tuân thủ (spike BE-4.3).
 - **CV dài:** giới hạn số `highlights` mỗi kinh nghiệm nếu kết quả quá dài (đo khi chạy thử).
 
 ## 8. Chế độ trích xuất (người dùng chọn)

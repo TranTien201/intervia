@@ -1,7 +1,7 @@
 # Hợp đồng API (MVP-1)
 
-- Cập nhật: 2026-10-12
-- Trạng thái: **bản nháp do phía web viết** (task `UI-0.3`), cần backend duyệt. Web chạy bằng mock (MSW) theo đúng file này; sửa ở đây trước rồi mới sửa code hai bên.
+- Cập nhật: 2026-10-13
+- Trạng thái: **bản nháp do phía web viết** (task `UI-0.3`). Backend đã làm và duyệt các nhóm `auth`, `roles`, `cvs`, `jds` (BE-9, BE-2, BE-4); các nhóm còn lại vẫn là bản nháp. Web chạy bằng mock (MSW) theo đúng file này; sửa ở đây trước rồi mới sửa code hai bên.
 - Khi backend có OpenAPI, type TypeScript sinh từ đó (`npm run gen:api`) và file này chỉ giữ phần giải thích.
 
 ---
@@ -33,6 +33,7 @@
 | `session_not_active` | 409 | Gửi câu trả lời cho phiên chưa bắt đầu / đã kết thúc |
 | `turn_in_progress` | 409 | Gửi lượt mới khi AI chưa trả lời xong lượt trước |
 | `llm_error` | 502 | Lỗi từ provider LLM sau khi đã thử lại. Phân tích CV/JD báo lỗi này trong `AnalysisProgress.error` (không qua HTTP status), cả khi phân tích bị gián đoạn vì server khởi động lại |
+| `method_not_allowed` | 405 | Sai method cho một path có thật |
 | `internal_error` | 500 | Lỗi khác |
 
 - **Giới hạn** (đề xuất): CV ≤ 5 MB; JD ≤ 20 000 ký tự; câu trả lời ≤ 8 000 ký tự; tên CV/JD ≤ 120 ký tự.
@@ -188,6 +189,8 @@ Như CV, khác ở:
 
 Tải JD bằng file: server trích chữ **ngay trong request** (JD ngắn nên nhanh), lưu vào `text` rồi phân tích như JD dán. Lỗi trả ngay: 415 `unsupported_file`, 413 `file_too_large`, 422 `no_text_in_file`, 422 `validation_error` với `fields.file` khi chữ trích được dài quá giới hạn JD. Không lưu file gốc (chỉ cần `text`), nên không có `/file`.
 
+**Backend chạy với adapter giả** (`EXTRACTOR_PROVIDER=fake`, mặc định khi dev, `backend/README.md`): mọi CV/JD ra cùng một kết quả mẫu, không gọi LlamaCloud; response vẫn đúng hợp đồng này. Trích dẫn của kết quả mẫu thường không khớp file thật nên claim báo `not_found`.
+
 **Chế độ trích xuất** (`mode`, `extraction.md` mục 8): JD chỉ nhận `standard` hoặc `precise`; gửi `layout` cho JD → 422 `validation_error` với `fields.mode`. `mode` không hợp lệ (cả CV và JD) → 422 `validation_error`.
 
 ### Phiên
@@ -240,7 +243,7 @@ Tải JD bằng file: server trích chữ **ngay trong request** (JD ngắn nên
 
 ## 4. Còn mở
 
-1. `agents.md` A1 ghi "code loại mục không có câu gốc", nhưng trang Đối chiếu có cảnh báo "Không tìm thấy câu gốc". File này giả định: **claim** không tìm thấy câu gốc được giữ lại với `quote_status = "not_found"` để người dùng kiểm tra; skill/kinh nghiệm thì loại. Backend cần xác nhận.
+1. ~~Mục không tìm thấy câu gốc~~ Đã chốt (BE-4.5): không loại mục nào vì thiếu câu gốc. Claim giữ với `quote_status = "not_found"`; skill, kinh nghiệm, yêu cầu JD giữ với `source_quote: null` (`agents.md` A1).
 2. Giới hạn ký tự ở mục 1 là đề xuất.
 3. Sinh lời AI thất bại sau khi client đã ngắt (vd: `llm_error`): transcript sẽ không bao giờ có câu tiếp theo, web chờ 30s rồi chỉ cho "Thử lại" (tải lại transcript) hoặc dừng phiên. Cần quyết định: backend tự thử lại, hay thêm endpoint để web yêu cầu sinh lại lượt AI.
 4. `email_taken` cho người khác biết một email đã đăng ký (lộ danh sách email). Chặn hẳn thì cần xác minh email qua thư, chưa có ở bản đầu. Tạm chấp nhận; backend nên giới hạn số lần đăng ký theo IP.

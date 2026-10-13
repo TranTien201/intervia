@@ -1,6 +1,6 @@
 # Thiết kế hệ thống agent
 
-- Cập nhật: 2026-10-10
+- Cập nhật: 2026-10-13
 - Phạm vi: toàn bộ các vai trò LLM của Intervia, không giới hạn ở MVP-1. Cột "Giai đoạn" ở mục 2 cho biết vai trò nào cần cho MVP nào.
 - Quyết định tóm tắt nằm trong `CLAUDE.md` (mục "Hệ thống agent"). File này giải thích chi tiết và lý do. Nếu hai file mâu thuẫn, theo `CLAUDE.md`.
 
@@ -86,17 +86,17 @@ Sau phiên:  A7 (chấm chính thức) ─► Gap Calculator (code) ─► A8 Co
 
 **Mục đích:** biến CV thành dữ liệu có cấu trúc, làm nguyên liệu cho blueprint và câu hỏi kiểm chứng.
 
-**Input:** text đã trích từ PDF/DOCX (do code trích, không phải LLM).
+**Cách chạy (đã làm, BE-4):** hai nửa.
+- **Trích xuất:** LlamaExtract (CLAUDE.md), không qua lớp LLM đa provider. Input là chữ do backend tự đọc từ PDF/DOCX (chế độ Tiêu chuẩn) hoặc file gốc (Đọc bố cục, Chính xác cao); schema `CvExtraction` (`app/schemas/extraction.py`), prompt `app/prompts/cv_extract_vN.md`. Chế độ: `extraction.md` mục 8.
+- **Code** (`app/domain/profiling.py`, không gọi mạng): gộp kỹ năng trùng tên, biến các ý có số liệu / quyền sở hữu trong kinh nghiệm thành claim, kiểm tra từng trích dẫn với chữ của tài liệu (`app/domain/quotes.py`: chuẩn hóa Unicode, dấu nháy, gạch đầu dòng, khoảng trắng, chữ hoa).
 
-**Output `CandidateProfile`:**
-- `skills[]`: `name`, `years` (nếu CV ghi), `source_quote`. Danh sách trường đầy đủ và cái không trích: `extraction.md`
-- `experiences[]`: công ty/dự án, vai trò, thời gian, công nghệ, trách nhiệm, `source_quote`
-- `claims[]`: `id`, `statement`, `metric` (vd: "40%"), `subject` (vd: "inference latency"), `verifiable: bool`, `source_quote`
-- `seniority_signals[]`: dấu hiệu về level (dẫn dắt team, thiết kế kiến trúc…), `source_quote`
+**Output:** mỗi lần phân tích lưu một phiên bản gồm
+- `profile` (`CandidateProfile`, người dùng xem/sửa): `skills[]` (`name`, `years`, `source_quote`), `experiences[]` (`organization`, `role`, `period`, `technologies`, `source_quote`), `claims[]` (`statement`, `metric`, `subject`, `verifiable`, `source_quote`, `quote_status`).
+- `extraction`: kết quả thô của LlamaExtract, giữ các trường web không hiện (`seniority_signals`, học vấn, chứng chỉ, ngoại ngữ, `stated_years`…) để A3 dùng. Danh sách trường đầy đủ và cái không trích: `extraction.md`.
 
 **Quy tắc:**
-- Chỉ trích những gì CV ghi, không suy diễn. Mọi mục phải có `source_quote` là trích dẫn nguyên văn.
-- Code kiểm tra `source_quote` có thật trong CV (so khớp chuỗi sau khi chuẩn hóa khoảng trắng). Không có thì loại mục đó.
+- Chỉ trích những gì CV ghi, không suy diễn.
+- Trích dẫn của LlamaCloud chỉ được dùng khi khớp chữ tài liệu (khoảng 1/4 trích dẫn trên PDF chỉ là đường dẫn trường, xem `docs/spikes/llamaextract.md`). **Không loại mục vì thiếu trích dẫn:** kỹ năng, kinh nghiệm không khớp thì `source_quote: null`; claim không khớp vẫn giữ với `quote_status: "not_found"` để người dùng kiểm tra trên web.
 - Claim tốt để kiểm chứng là claim có **số liệu hoặc kết quả cụ thể**. Claim chung chung ("làm việc nhóm tốt") thì `verifiable = false`.
 
 **Lỗi thường gặp:** suy diễn skill từ công nghệ ("dùng Redis" thành "giỏi system design"); gộp nhiều claim thành một; trích sai số liệu.
@@ -105,17 +105,18 @@ Sau phiên:  A7 (chấm chính thức) ─► Gap Calculator (code) ─► A8 Co
 
 **Mục đích:** biến JD thành danh sách yêu cầu có cấu trúc (chép nguyên văn, không map vào danh sách chủ đề cố định; xem `extraction.md` mục 5).
 
-**Input:** JD text, Role.
+**Cách chạy (đã làm, BE-4):** LlamaExtract trích theo `JdExtraction` (prompt `app/prompts/jd_extract_vN.md`), code (`app/domain/jd_analysis.py`) chuyển thành yêu cầu. JD dán hay tải file đều phân tích trên `text` (file được đọc chữ ngay lúc tải lên, không lưu file gốc).
 
-**Output `JDRequirements`:**
-- `requirements[]`: `name` (nhãn ngắn), `kind` (`required` | `preferred`), `importance` (1–3), `source_quote`
-- `responsibilities[]`: trách nhiệm công việc (nguyên văn)
-- `level_hints[]`: dấu hiệu về level trong JD (số năm kinh nghiệm, "lead", "mentor")
+**Input:** JD text. **Không có Role:** JD thuộc thư viện và dùng lại cho nhiều phiên với role khác nhau, nên kết quả phân tích không được phụ thuộc role.
+
+**Output:** mỗi lần phân tích lưu một phiên bản gồm
+- `requirements` (`JdRequirements`, người dùng xem/sửa): `requirements[]`: `name` (nhãn ngắn), `kind` (`required` | `preferred`), `importance` (1–3), `source_quote` (chỉ giữ khi có trong JD).
+- `extraction`: kết quả thô, gồm `responsibilities[]` (nguyên văn), `level_signals[]`, `stated_level`, `years_required`, `domain`, để A3 dùng.
+- `company`, `position` ghi lên JD để hiện trong thư viện.
 
 **Quy tắc:**
 - Yêu cầu chỉ lấy từ phần yêu cầu của JD; phần mô tả công việc vào `responsibilities`. Quy tắc tách, `kind`, `importance`: `extraction.md` mục 3.2.
-- **Input không có Role:** JD thuộc thư viện và dùng lại cho nhiều phiên với role khác nhau, nên kết quả phân tích không được phụ thuộc role.
-- Chạy bằng LlamaExtract (CLAUDE.md), như A1.
+- `importance` ngoài 1–3 bị code ép lại thay vì làm hỏng cả JD; quá 100 yêu cầu thì cắt.
 
 ### A3. Blueprint Builder
 

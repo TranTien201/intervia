@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "vite",
     "dev:mock": "VITE_USE_MOCK=true vite",
-    "dev:hybrid": "VITE_USE_MOCK=true VITE_REAL_API=auth vite",
+    "dev:hybrid": "VITE_USE_MOCK=true VITE_REAL_API=auth,roles,cvs,jds vite",
     "build": "tsc -b && vite build",
     "preview": "vite preview",
     "lint": "oxlint src",

@@ -14,7 +14,7 @@ Cần Node ≥ 22.22.
 |---|---|
 | `npm install` | Cài thư viện |
 | `npm run dev:mock` | Chạy với API giả (MSW), không cần backend. Mở http://localhost:5173 |
-| `npm run dev:hybrid` | API giả, trừ các nhóm backend đã làm (`VITE_REAL_API`, hiện là `auth`) đi tới backend thật. Cần chạy backend |
+| `npm run dev:hybrid` | API giả, trừ các nhóm backend đã làm (`VITE_REAL_API`, hiện là `auth,roles,cvs,jds`) đi tới backend thật. Cần chạy backend. Xem mục "Chạy nửa thật nửa giả" |
 | `npm run dev` | Chạy với backend thật (proxy `/api` → `VITE_API_URL`, mặc định `http://localhost:8000`) |
 | `npm test` | Test thành phần (Vitest + Testing Library + MSW) |
 | `npm run e2e` | Test E2E (Playwright, tự bật server với API giả). Lần đầu: `npx playwright install chromium` |
@@ -40,6 +40,17 @@ __mock.setFlags({ auth: true })             // bật đăng nhập (tài khoản
 ```
 
 Tải lên file có chữ `scan` trong tên (vd: `ban-scan.pdf`) để giả lập lỗi "file scan không có chữ".
+
+## Chạy nửa thật nửa giả (`dev:hybrid`)
+
+`VITE_REAL_API` liệt kê các nhóm endpoint đã có ở backend, cách nhau bằng dấu phẩy. Mock của nhóm đó bị bỏ (cả `/api/<nhóm>` lẫn `/api/<nhóm>/…`), request đi qua proxy của Vite tới backend; các nhóm khác vẫn dùng MSW. Hiện tại: `auth` (đăng nhập), `roles`, `cvs`, `jds` (thư viện CV & JD và phân tích).
+
+Backend chạy với `EXTRACTOR_PROVIDER=fake` thì mọi CV/JD ra cùng một kết quả mẫu (trích dẫn sẽ báo "không tìm thấy câu gốc" vì không khớp file thật); muốn kết quả thật thì đặt `EXTRACTOR_PROVIDER=llamacloud` (xem `backend/README.md`).
+
+**Hạn chế đã biết** (tới khi backend có API phiên, `BE-6`):
+- Sidebar, luồng tạo phiên, trang Đối chiếu, Kế hoạch, Phỏng vấn, Xem lại vẫn dùng dữ liệu giả.
+- CV/JD thật (trong thư viện) không chọn được ở luồng tạo phiên giả, và ngược lại phiên giả trỏ tới CV/JD giả không có ở backend.
+- "Đã dùng trong" ở trang Chi tiết CV/JD luôn trống (`GET …/sessions` tạm trả `[]`).
 
 ## Cấu trúc
 
