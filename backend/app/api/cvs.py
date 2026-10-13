@@ -162,3 +162,9 @@ async def save_cv_version(cv_id: str, body: NewVersionBody, user: CurrentUser, d
 async def list_cv_sessions(cv_id: str, user: CurrentUser, db: Db) -> list[Any]:
     await _get_cv(db, user, cv_id)
     return []  # sessions arrive with BE-6
+
+
+@router.delete("/cvs/{cv_id}", status_code=204)
+async def delete_cv(cv_id: str, user: CurrentUser, db: Db) -> None:
+    if not await library.delete_cv(db, user.id, cv_id):
+        raise AppError("not_found", 404, "Không tìm thấy CV.")

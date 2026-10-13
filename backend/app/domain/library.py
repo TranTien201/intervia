@@ -2,6 +2,9 @@
 
 from typing import get_args
 
+from pymongo.asynchronous.database import AsyncDatabase
+
+from app.db import cvs, jds
 from app.schemas.analysis import NAME_MAX, ExtractionMode
 from app.schemas.jd import JD_TEXT_MAX
 
@@ -31,3 +34,32 @@ def parse_mode(raw: object, allowed: tuple[ExtractionMode, ...]) -> ExtractionMo
     if raw is None or raw == "":
         return "standard"
     return raw if isinstance(raw, str) and raw in allowed else None  # type: ignore[return-value]
+
+
+async def delete_cv(db: AsyncDatabase, user_id: str, cv_id: str) -> bool:
+    """Delete a CV and everything derived from it. False if there is no such CV.
+
+    No transactions, so the order matters: the `cvs` document goes last and is marked
+    `deleting` first. A run cut off anywhere leaves that marked document behind (hidden from
+    every read), and running this again finishes the job; every step tolerates data that an
+    earlier run already removed.
+    """
+    cv = await cvs.mark_deleting(db, user_id, cv_id)  # 1. hide; running analysis stops (4.7)
+    if cv is None:
+        return False
+    # 2. (BE-8) delete the sessions using this CV, with their audio files.
+    await cvs.delete_versions(db, cv.id)  # 3. (BE-4.4: then llm_calls referring to the CV)
+    await cvs.delete_file(db, cv.file_id)  # 4.
+    await cvs.delete_cv_document(db, cv.id)  # 5. last
+    return True
+
+
+async def delete_jd(db: AsyncDatabase, user_id: str, jd_id: str) -> bool:
+    """Same order as `delete_cv`, without a stored file."""
+    jd = await jds.mark_deleting(db, user_id, jd_id)
+    if jd is None:
+        return False
+    # (BE-8) delete the sessions using this JD.
+    await jds.delete_versions(db, jd.id)  # (BE-4.4: then llm_calls referring to the JD)
+    await jds.delete_jd_document(db, jd.id)
+    return True

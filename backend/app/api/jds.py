@@ -145,3 +145,9 @@ async def save_jd_version(jd_id: str, body: NewVersionBody, user: CurrentUser, d
 async def list_jd_sessions(jd_id: str, user: CurrentUser, db: Db) -> list[Any]:
     await _get_jd(db, user, jd_id)
     return []  # sessions arrive with BE-6
+
+
+@router.delete("/jds/{jd_id}", status_code=204)
+async def delete_jd(jd_id: str, user: CurrentUser, db: Db) -> None:
+    if not await library.delete_jd(db, user.id, jd_id):
+        raise AppError("not_found", 404, "Không tìm thấy JD.")
