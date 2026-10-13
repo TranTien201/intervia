@@ -8,7 +8,8 @@ app/
   config.py    # Settings đọc từ biến môi trường / backend/.env
   api/         # FastAPI routes (lớp mỏng); deps.py (current_user, get_db), errors.py (định dạng lỗi)
   domain/      # logic nghiệp vụ + orchestrator; không import SDK hãng nào, không import Pipecat
-  providers/   # AI: llm/, stt/, tts/
+  documents.py # đọc chữ PDF/DOCX tại chỗ (chế độ trích xuất `standard`)
+  providers/   # AI: extract/ (LlamaCloud, giả), llm/, stt/, tts/
   prompts/     # AI: prompt có version
   voice/       # AI: Pipecat pipeline + InterviewProcessor
   schemas/     # Pydantic models
@@ -39,6 +40,8 @@ cp .env.example .env         # sửa MONGODB_URI nếu MongoDB ở chỗ khác
 | `uv add <gói>` | Thêm thư viện |
 
 Đăng nhập: bật bằng `AUTH_ENABLED=true` trong `.env` (dev cần thêm `AUTH_COOKIE_SECURE=false`). Thử cùng web: `npm run dev:hybrid` trong `web/` (đăng nhập dùng backend thật, các trang khác vẫn dùng API giả).
+
+Trích xuất CV/JD: mặc định `EXTRACTOR_PROVIDER=fake` (không cần key, mọi CV ra cùng một hồ sơ mẫu). Dùng LlamaCloud thật: đặt `EXTRACTOR_PROVIDER=llamacloud` và `LLAMA_CLOUD_API_KEY` trong `.env`; thiếu key thì app không khởi động. Các biến khác (gói theo mức chất lượng, số trang tối đa, thời gian chờ) xem `.env.example`. Test gọi LlamaCloud thật (tốn credit, mặc định bỏ qua): `RUN_LLAMACLOUD_TESTS=1 uv run pytest -m llamacloud`.
 
 Kiểm tra nhanh: `curl localhost:8000/api/health` → `{"status":"ok","db":"ok"}`. OpenAPI: `/openapi.json`, giao diện thử API: `/docs`.
 

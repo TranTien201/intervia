@@ -1,0 +1,85 @@
+{
+  "document_text": "Backend Engineer - 4 năm kinh nghiệm\n\nKỸ NĂNG\nNgôn ngữ lập trình: Python, Go\nDatabase: PostgreSQL, MongoDB, Redis\n\nKINH NGHIỆM\nCông ty ABC | Backend Engineer | 03/2021 - nay\n- Thiết kế API thanh toán bằng FastAPI, phục vụ 2 triệu request mỗi ngày\n- Giảm độ trễ truy vấn 40% nhờ thêm cache Redis\n- Hướng dẫn 2 bạn intern viết test\n\nDự án: Hệ thống thông báo\n- Xây dựng hàng đợi gửi thông báo bằng Kafka\n\nHỌC VẤN\nĐại học Bách khoa Hà Nội | Kỹ sư | Công nghệ thông tin | 2016 - 2021\n\nNGOẠI NGỮ\nTiếng Anh: TOEIC 850",
+  "data": {
+    "headline": "Backend Engineer - 4 năm kinh nghiệm",
+    "stated_years": 4,
+    "cv_language": "vi",
+    "skills": [
+      {"name": "Python", "source": "skills_section", "group": "Ngôn ngữ lập trình", "proficiency": null, "years": null},
+      {"name": "Go", "source": "skills_section", "group": "Ngôn ngữ lập trình", "proficiency": null, "years": null},
+      {"name": "PostgreSQL", "source": "skills_section", "group": "Database", "proficiency": null, "years": null},
+      {"name": "MongoDB", "source": "skills_section", "group": "Database", "proficiency": null, "years": null},
+      {"name": "Redis", "source": "skills_section", "group": "Database", "proficiency": null, "years": null},
+      {"name": "FastAPI", "source": "experience", "group": null, "proficiency": null, "years": null},
+      {"name": "Kafka", "source": "experience", "group": null, "proficiency": null, "years": null}
+    ],
+    "experiences": [
+      {
+        "kind": "work",
+        "name": "Công ty ABC",
+        "organization": "Công ty ABC",
+        "role": "Backend Engineer",
+        "period": "03/2021 - nay",
+        "start": "2021-03",
+        "end": null,
+        "is_current": true,
+        "team_size": null,
+        "technologies": ["FastAPI", "Redis"],
+        "highlights": [
+          {
+            "text": "Thiết kế API thanh toán bằng FastAPI, phục vụ 2 triệu request mỗi ngày",
+            "kind": "metric",
+            "statement": "Thiết kế API thanh toán phục vụ 2 triệu request/ngày",
+            "metric": "2 triệu request mỗi ngày",
+            "subject": "API thanh toán"
+          },
+          {
+            "text": "Giảm độ trễ truy vấn 40% nhờ thêm cache Redis",
+            "kind": "metric",
+            "statement": "Giảm 40% độ trễ truy vấn bằng cache Redis",
+            "metric": "40%",
+            "subject": "độ trễ truy vấn"
+          },
+          {
+            "text": "Hướng dẫn 2 bạn intern viết test",
+            "kind": "task",
+            "statement": null,
+            "metric": null,
+            "subject": null
+          }
+        ]
+      },
+      {
+        "kind": "project",
+        "name": "Hệ thống thông báo",
+        "organization": null,
+        "role": null,
+        "period": null,
+        "start": null,
+        "end": null,
+        "is_current": false,
+        "team_size": null,
+        "technologies": ["Kafka"],
+        "highlights": [
+          {
+            "text": "Xây dựng hàng đợi gửi thông báo bằng Kafka",
+            "kind": "ownership",
+            "statement": "Tự xây dựng hàng đợi gửi thông báo bằng Kafka",
+            "metric": null,
+            "subject": "hàng đợi gửi thông báo"
+          }
+        ]
+      }
+    ],
+    "seniority_signals": [
+      {"kind": "mentoring", "text": "Hướng dẫn 2 bạn intern viết test"}
+    ],
+    "education": [
+      {"institution": "Đại học Bách khoa Hà Nội", "degree": "Kỹ sư", "major": "Công nghệ thông tin", "period": "2016 - 2021"}
+    ],
+    "credentials": [],
+    "languages": [
+      {"name": "Tiếng Anh", "level": "TOEIC 850"}
+    ]
+  }
+}

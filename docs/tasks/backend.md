@@ -46,7 +46,7 @@
   - **Đã xong (2026-10-13):** `app/schemas/extraction.py`: `CvExtraction`, `JdExtraction` (mọi trường có `description` tiếng Anh, mọi trường đều bắt buộc kể cả trường nullable, để LlamaExtract luôn trả đủ khóa), `CV_SCHEMA_VERSION = "cv-1"`, `JD_SCHEMA_VERSION = "jd-1"`; `cv_json_schema()` / `jd_json_schema()` trả schema đã gọn cho LlamaExtract (inline `$ref`, chỉ giữ `type`, `description`, `properties`, `required`, `items`, `anyOf`, `enum`). `importance` dùng `Literal[1, 2, 3]` thay cho `int` để Pydantic tự chặn giá trị ngoài 1–3. Prompt: `app/prompts/cv_extract_v1.md`, `jd_extract_v1.md`; `load_prompt(name)` lấy bản `_vN` mới nhất. Test: `tests/test_extraction_schema.py` (thêm dev dependency `jsonschema` để kiểm tra schema hợp lệ). Giới hạn schema LlamaExtract: không ảnh hưởng, riêng `enum` chưa được tài liệu xác nhận, kiểm tra ở BE-4.3 (`extraction.md` mục 7).
 - [x] BE-4.3. Chạy thử LlamaExtract trên CV/JD thật (spike)
   - **Đã xong tạm (2026-10-13):** `scripts/try_extract.py`, `scripts/show_extract.py`; báo cáo `docs/spikes/llamaextract.md` (mới chạy 1 CV + 1 JD tiếng Anh). Kết luận: dùng tiếp có điều kiện, người dùng chọn chế độ trích xuất (`extraction.md` mục 8). Sửa kèm: `jd_extract_v2`, schema `jd-2` (không tách danh sách lựa chọn). **Còn nợ:** chạy CV scan, 2 cột, tiếng Việt, DOCX, Junior, JD dán text / tiếng Việt; lưu fixture `tests/fixtures/extraction/` (cần trước BE-4.5).
-- [ ] BE-4.4. Lớp provider trích xuất
+- [x] BE-4.4. Lớp provider trích xuất
 - [ ] BE-4.5. Chuyển kết quả CV thành hồ sơ (A1)
 - [ ] BE-4.6. Phân tích JD (A2) và tải JD bằng file
 - [ ] BE-4.7. Chạy phân tích nền và báo tiến trình

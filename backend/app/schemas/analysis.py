@@ -10,6 +10,7 @@ from pydantic import BaseModel, Field
 
 AnalysisStatus = Literal["pending", "running", "done", "failed"]
 ExtractionMode = Literal["standard", "layout", "precise"]
+ExtractionMethod = Literal["text", "file"]  # what was sent: text read locally, or the file
 VersionOrigin = Literal["analysis", "user_edit", "reanalysis"]
 StepStatus = Literal["done", "running", "pending", "failed"]
 
@@ -42,12 +43,19 @@ class AnalysisState(BaseModel):
 
 
 class ExtractorInfo(BaseModel):
-    """What produced an analysis version, so it can be re-run and compared."""
+    """What produced an analysis version, so it can be re-run and compared.
+
+    The user's `mode` is on the version itself; this is how it actually ran.
+    """
 
     provider: str
-    tier: str
+    tier: str | None
     schema_version: str
     prompt_version: str
+    method: ExtractionMethod
+    fallback: bool  # `standard` could not read the text and sent the file instead
+    credits: float | None
+    llm_call_id: str  # the `llm_calls` record holding the raw output
 
 
 class VersionInfo(BaseModel):

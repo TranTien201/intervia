@@ -4,7 +4,7 @@ from typing import get_args
 
 from pymongo.asynchronous.database import AsyncDatabase
 
-from app.db import cvs, jds
+from app.db import cvs, jds, llm_calls
 from app.schemas.analysis import NAME_MAX, ExtractionMode
 from app.schemas.jd import JD_TEXT_MAX
 
@@ -48,9 +48,10 @@ async def delete_cv(db: AsyncDatabase, user_id: str, cv_id: str) -> bool:
     if cv is None:
         return False
     # 2. (BE-8) delete the sessions using this CV, with their audio files.
-    await cvs.delete_versions(db, cv.id)  # 3. (BE-4.4: then llm_calls referring to the CV)
-    await cvs.delete_file(db, cv.file_id)  # 4.
-    await cvs.delete_cv_document(db, cv.id)  # 5. last
+    await cvs.delete_versions(db, cv.id)  # 3.
+    await llm_calls.delete_for_ref(db, "cv", cv.id)  # 4. extraction outputs (CV content)
+    await cvs.delete_file(db, cv.file_id)  # 5.
+    await cvs.delete_cv_document(db, cv.id)  # 6. last
     return True
 
 
@@ -60,6 +61,7 @@ async def delete_jd(db: AsyncDatabase, user_id: str, jd_id: str) -> bool:
     if jd is None:
         return False
     # (BE-8) delete the sessions using this JD.
-    await jds.delete_versions(db, jd.id)  # (BE-4.4: then llm_calls referring to the JD)
+    await jds.delete_versions(db, jd.id)
+    await llm_calls.delete_for_ref(db, "jd", jd.id)
     await jds.delete_jd_document(db, jd.id)
     return True

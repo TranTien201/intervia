@@ -2,7 +2,9 @@ import uuid
 
 from app.db import cvs, jds
 from app.db.mongo import utcnow
+from app.domain.extraction import extract_cv, extract_jd
 from app.domain.files import PDF
+from app.providers.extract.fake import FakeExtractor
 from app.schemas.cv import CandidateProfile, CvVersionRecord
 from app.schemas.jd import JdRequirements, JdVersionRecord
 from app.schemas.user import DEFAULT_USER_ID
@@ -113,3 +115,35 @@ async def test_interrupted_jd_delete_and_other_user(client, db):
 
     other = await jds.create_jd(db, "someone-else", "JD", "text")
     assert (await client.delete(f"/api/jds/{other.id}")).status_code == 404
+
+
+async def test_delete_removes_extraction_calls(client, db):
+    """`llm_calls.output` holds CV / JD content, so it goes with the CV / JD."""
+    fake = FakeExtractor()
+    cv_id = await _cv_with_versions(db, n=1)
+    jd = await jds.create_jd(db, DEFAULT_USER_ID, "JD", "text")
+    for ref_id in (cv_id, "other-cv"):
+        await extract_cv(
+            db,
+            fake,
+            user_id=DEFAULT_USER_ID,
+            cv_id=ref_id,
+            attempt_id="a",
+            mode="layout",
+            filename="cv.pdf",
+            content=PDF_BYTES,
+            content_type=PDF,
+        )
+    await extract_jd(
+        db,
+        fake,
+        user_id=DEFAULT_USER_ID,
+        jd_id=jd.id,
+        attempt_id="a",
+        mode="standard",
+        text="text",
+    )
+
+    assert (await client.delete(f"/api/cvs/{cv_id}")).status_code == 204
+    assert (await client.delete(f"/api/jds/{jd.id}")).status_code == 204
+    assert [c["ref"]["id"] async for c in db.llm_calls.find()] == ["other-cv"]

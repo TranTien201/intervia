@@ -9,9 +9,12 @@ requires-python = ">=3.11,<3.12"
 dependencies = [
     "argon2-cffi>=25.1.0",
     "fastapi>=0.143.0",
+    "llama-cloud>=2.18.0",
     "pydantic>=2",
     "pydantic-settings>=2.15.0",
     "pymongo>=4.13",
+    "pypdf>=6.20.1",
+    "python-docx>=1.2.0",
     "python-multipart>=0.0.32",
     "uvicorn[standard]>=0.54.0",
 ]
@@ -21,8 +24,6 @@ dependencies = [
 dev = [
     "httpx>=0.28.1",
     "jsonschema>=4.26.0",
-    "llama-cloud>=2.18.0",
-    "pypdf>=6.20.1",
     "pytest>=9.1.1",
     "pytest-asyncio>=1.4.0",
     "ruff>=0.17.0",
@@ -36,6 +37,7 @@ asyncio_mode = "auto"
 asyncio_default_fixture_loop_scope = "session"
 asyncio_default_test_loop_scope = "session"
 testpaths = ["tests"]
+markers = ["llamacloud: calls the real LlamaCloud API (costs credits; RUN_LLAMACLOUD_TESTS=1)"]
 
 [tool.ruff]
 line-length = 100

@@ -1,0 +1,22 @@
+{
+  "document_text": "Công ty XYZ tuyển Backend Engineer (Mid-level)\n\nMô tả công việc\n- Phát triển và vận hành các dịch vụ thanh toán\n- Review code cho thành viên trong nhóm\n\nYêu cầu\n- Tối thiểu 3 năm kinh nghiệm backend\n- Thành thạo Python hoặc Go\n- Có kinh nghiệm với PostgreSQL\n\nƯu tiên\n- Đã từng làm việc với Kafka",
+  "data": {
+    "company": "Công ty XYZ",
+    "position": "Backend Engineer",
+    "stated_level": "Mid-level",
+    "years_required": 3,
+    "domain": "thanh toán",
+    "jd_language": "vi",
+    "responsibilities": [
+      {"text": "Phát triển và vận hành các dịch vụ thanh toán"},
+      {"text": "Review code cho thành viên trong nhóm"}
+    ],
+    "requirements": [
+      {"name": "kinh nghiệm backend", "text": "Tối thiểu 3 năm kinh nghiệm backend", "kind": "required", "importance": 2},
+      {"name": "Python hoặc Go", "text": "Thành thạo Python hoặc Go", "kind": "required", "importance": 3},
+      {"name": "PostgreSQL", "text": "Có kinh nghiệm với PostgreSQL", "kind": "required", "importance": 2},
+      {"name": "Kafka", "text": "Đã từng làm việc với Kafka", "kind": "preferred", "importance": 1}
+    ],
+    "level_signals": ["Review code cho thành viên trong nhóm"]
+  }
+}

@@ -1,6 +1,7 @@
 from functools import lru_cache
 from typing import Literal
 
+from pydantic import SecretStr, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -29,6 +30,21 @@ class Settings(BaseSettings):
 
     # Comma-separated origins allowed by CORS in dev (Vite dev server).
     cors_origins: str = "http://localhost:5173"
+
+    # CV / JD extraction (BE-4.4). `fake` needs no key: every CV gives the same sample profile.
+    extractor_provider: Literal["llamacloud", "fake"] = "fake"
+    llama_cloud_api_key: SecretStr | None = None
+    # LlamaExtract plan per quality (docs/design/extraction.md section 8); parse uses the same.
+    llama_tier_economy: str = "cost_effective"
+    llama_tier_high: str = "agentic"
+    extract_max_pages: int = 6  # caps the cost of an unexpectedly long file
+    extract_timeout_s: int = 180  # per attempt; an attempt is retried up to twice
+
+    @model_validator(mode="after")
+    def _check_extractor_key(self) -> "Settings":
+        if self.extractor_provider == "llamacloud" and not self.llama_cloud_api_key:
+            raise ValueError("EXTRACTOR_PROVIDER=llamacloud needs LLAMA_CLOUD_API_KEY")
+        return self
 
     @property
     def cors_origin_list(self) -> list[str]:

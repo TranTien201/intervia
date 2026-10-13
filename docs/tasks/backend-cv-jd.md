@@ -364,8 +364,9 @@ class JdExtraction(BaseModel):
   "profile": { "skills": [], "experiences": [], "claims": [] },
   "extraction": { "...": "CvExtraction thô, chỉ có khi origin là analysis/reanalysis" },
   "citations": { "...": "metadata trích dẫn thô" },
-  "extractor": { "provider": "llamacloud", "tier": "agentic",
-                 "schema_version": "cv-1", "prompt_version": "cv_extract_v1" },
+  "extractor": { "provider": "llamacloud", "tier": "cost_effective",
+                 "schema_version": "cv-1", "prompt_version": "cv_extract_v1",
+                 "method": "text", "fallback": false, "credits": 25.0, "llm_call_id": "uuid" },
   "created_at": "...", "schema_version": 1
 }
 ```
@@ -503,9 +504,10 @@ class JdExtraction(BaseModel):
 **Thứ tự xóa CV** (`app/domain/library.py`, hàm `delete_cv`):
 1. Đặt `deleting = true` trên `cvs`. Từ đây mọi `GET` coi CV này là không tồn tại, job phân tích đang chạy sẽ tự dừng (4.7).
 2. (BE-8) Xóa các phiên dùng CV này.
-3. Xóa mọi `cv_versions` của CV. (BE-4.4 thêm ngay sau bước này: xóa `llm_calls` có `ref` trỏ tới CV, vì `output` chứa PII.)
-4. Xóa file GridFS.
-5. Xóa document `cvs` **cuối cùng**.
+3. Xóa mọi `cv_versions` của CV.
+4. Xóa `llm_calls` có `ref` trỏ tới CV (BE-4.4), vì `output` chứa PII.
+5. Xóa file GridFS.
+6. Xóa document `cvs` **cuối cùng**.
 
 Đứt ở bất kỳ bước nào: document `cvs` vẫn còn với `deleting = true`, nên gọi xóa lần nữa (hoặc khi khởi động, xem 4.7) chạy lại từ bước 1 và hoàn tất. Các bước đều không lỗi khi dữ liệu đã bị xóa trước đó.
 
@@ -524,93 +526,79 @@ Hàm repository lấy CV cho bước xóa phải lấy được cả bản ghi `
 
 **Mục tiêu.** Domain gọi trích xuất qua một interface, không biết LlamaCloud. Sau này đổi sang LLM khác chỉ cần thêm adapter. Test chạy bằng adapter giả, không tốn tiền.
 
-**Làm:** interface; adapter LlamaCloud; adapter giả; cấu hình; thử lại khi lỗi; ghi `llm_calls`.
+**Đã làm (2026-10-13).** Phần dưới mô tả code thật; đọc code để biết chi tiết.
 
-**Cập nhật sau spike BE-4.3 (2026-10-13): chế độ trích xuất.** Người dùng chọn `standard` / `layout` / `precise` (`extraction.md` mục 8, `api.md`). Phần dưới (interface, cấu hình) viết trước spike; khi làm, sửa theo các điểm sau:
-- **Bộ đọc chữ tại chỗ** `backend/app/documents.py` (mới, không thuộc provider vì không gọi dịch vụ ngoài): `read_text(content, filename) -> DocumentText` (`text`, `page_count`, `looks_readable: bool`). PDF bằng `pypdf` (`extraction_mode="layout"`), DOCX bằng thư viện đọc DOCX; gộp khoảng trắng. `looks_readable = False` khi chữ quá ít so với số trang hoặc nhiều ký tự lạ (ngưỡng chốt sau khi chạy thử CV scan / lỗi font). Dùng cho cả CV (`standard`) và JD tải bằng file (BE-4.6, thay cho `extractor.read_text`). Chuyển `pypdf` từ dev dependency sang dependency chính.
-- **Interface** nhận đầu vào là chữ **hoặc** file, và một mức chất lượng không gắn với tên gói của hãng: `extract(*, text: str | None, content: bytes | None, filename: str, quality: Literal["economy", "high"], schema, system_prompt)`. Adapter đổi `quality` ra gói của mình theo cấu hình. Bỏ `read_text` khỏi interface.
-- **Domain** (BE-4.5/4.6) đổi `mode` ra lời gọi: `standard` → `read_text`; đọc được thì gửi chữ (`economy`), không thì gửi file (`economy`) và ghi `fallback = True`. `layout` → gửi file (`economy`). `precise` → gửi file với CV, chữ với JD (`high`).
-- **Cấu hình:** thay `llama_extract_tier` bằng `llama_tier_economy = "cost_effective"`, `llama_tier_high = "agentic"` (gói extract, parse dùng cùng gói); `extract_max_pages = 6` (`max_pages`).
-- **Lưu kèm mỗi lần phân tích** (bản ghi phân tích và `llm_calls`): `mode` người dùng chọn, `method` (`text` / `file`), gói, `fallback`, credit. `cv_versions` / `jd_versions` có trường `mode` (API trả trong `CvVersion.mode`).
-- **Chữ dùng để kiểm tra trích dẫn** là chữ đã gửi đi (đường `text`), hoặc chữ lấy từ parse job (đường `file`, lấy trước khi xóa job). Không dùng `citation` của hãng (spike câu 7).
-- **Không trích lại file trùng:** lưu hash nội dung; cùng file + cùng `mode` + cùng version prompt/schema thì dùng lại kết quả cũ (không tốn credit).
+**Bộ đọc chữ tại chỗ** `app/documents.py` (không thuộc provider vì không gọi dịch vụ ngoài): `read_text(content, content_type) -> DocumentText(text, page_count, looks_readable)`. Loại file lấy từ `detect_content_type` (theo nội dung, không theo đuôi file). PDF bằng `pypdf` (`extraction_mode="layout"`, từng trang riêng: trang lỗi tính là trang trống), DOCX bằng `python-docx` (đoạn văn và bảng theo thứ tự, ô gộp chỉ lấy một lần, bỏ header/footer). Chữ được NFC và gộp khoảng trắng. File hỏng không ném lỗi mà trả `looks_readable = False`. Đồng bộ, tốn CPU: gọi qua `asyncio.to_thread`.
+- `looks_readable = False` khi ít hơn `MIN_CHARS_PER_PAGE = 100` ký tự mỗi trang, hoặc hơn `MAX_ODD_CHAR_RATIO = 2%` ký tự lạ (vùng private use, ký tự điều khiển, U+FFFD). **Ngưỡng tạm**, chốt sau khi chạy thử CV scan, CV 2 cột, CV tiếng Việt lỗi font (`extraction.md` mục 8). Lỗi font kiểu TCVN3 (ra chữ Latin có dấu sai) chưa bắt được.
 
-**File tạo/sửa:**
-- `backend/app/providers/extract/__init__.py`, `base.py`, `llamacloud.py`, `fake.py` (mới)
-- `backend/app/db/llm_calls.py` (mới; collection `llm_calls` dùng chung cho mọi vai trò AI sau này)
-- `backend/app/config.py`, `backend/.env.example`; `app/main.py` (tạo extractor trong lifespan → `app.state.extractor`); `app/api/deps.py` (`get_extractor`)
-- `uv add llama-cloud`
-- `backend/tests/test_extractor.py` (mới)
-
-**Interface (`base.py`):**
+**Interface** (`providers/extract/base.py`):
 
 ```python
-class Citation(BaseModel):
-    page: int | None
-    text: str                    # verbatim text from the document
+Quality = Literal["economy", "high"]           # not tied to any provider's plan names
 
 class ExtractionResult(BaseModel):
-    data: dict                   # raw output matching the JSON schema sent
-    citations: dict[str, list[Citation]]   # key = field path as the provider gives it
-    document_text: str | None    # full text if the provider returns it (see BE-4.3 question 9)
-    provider: str                # "llamacloud" | "fake"
-    tier: str | None
-    job_id: str | None
-    latency_ms: int
-    usage: dict                  # credits / pages if the provider reports them
+    data: dict                                 # raw output for the schema sent
+    citations: dict[str, list[Citation]]       # "skills[3].name" -> [Citation(page, text)]; not trusted
+    document_text: str | None                  # text sent, or provider's parse of the file
+    provider: str; tier: str | None; latency_ms: int; retries: int
+    usage: dict[str, float]                    # {"credits": 25.0, ...}
 
-class ExtractorError(Exception):
-    code: Literal["no_text", "provider_error", "timeout"]
+class ExtractorError(Exception):               # .code: no_text | provider_error | timeout; .retries
 
 class DocumentExtractor(Protocol):
-    async def extract(self, *, content: bytes, filename: str,
-                      schema: dict, system_prompt: str) -> ExtractionResult: ...
-    async def read_text(self, *, content: bytes, filename: str) -> str: ...   # for JD files
+    name: str
+    async def extract(self, *, text=None, content=None, filename, quality, schema, system_prompt)
+        -> ExtractionResult                    # exactly one of text / content
+    def tier_for(self, quality) -> str | None
+    async def aclose(self) -> None
 ```
 
-**Adapter LlamaCloud (`llamacloud.py`):**
-- Dùng `AsyncLlamaCloud` (bản async của SDK, không chặn event loop). Cấu hình gọi đúng như kết luận của BE-4.3 (gói, `cite_sources`, có chạy LlamaParse trước để lấy chữ hay không).
-- Polling mỗi 2 giây; quá `extract_timeout_s` → `ExtractorError("timeout")`.
-- **Thử lại tối đa 2 lần** (chờ 2s rồi 5s) khi: hết thời gian, lỗi mạng, HTTP 5xx, 429. **Không thử lại** khi lỗi 4xx khác (lỗi của mình, thử lại vô ích).
-- Tài liệu không có chữ (job báo lỗi tương ứng, hoặc trả về rỗng hoàn toàn) → `ExtractorError("no_text")`. Cách nhận biết lấy từ kết quả BE-4.3.
-- Sau khi xong (thành công hay lỗi): xóa file đã tải lên LlamaCloud nếu API hỗ trợ.
-- Chuyển metadata trích dẫn của LlamaCloud sang `dict[str, list[Citation]]` ngay trong adapter; phần còn lại của hệ thống không thấy định dạng riêng của LlamaCloud.
+**Adapter LlamaCloud** (`llamacloud.py`):
+- `AsyncLlamaCloud` với `max_retries=0`: tự thử lại cả lượt (tải lên → tạo job → chờ → đọc kết quả), để đếm được `retries`.
+- Chữ được tải lên dạng `<tên>.txt`, `text/plain`; file gửi nguyên bản. Cấu hình job: `tier` theo `quality`, `system_prompt`, `cite_sources`, `disable_cache` (PII), `max_pages`. Parse dùng cùng gói (không đặt `parse_tier`).
+- Polling mỗi 2 giây; quá `extract_timeout_s` (mỗi lượt) → `timeout`.
+- **Thử lại tối đa 2 lần** (chờ 2s rồi 5s) khi: hết giờ, lỗi mạng, HTTP 5xx, 429. **Không thử lại** khi gặp lỗi 4xx khác, hoặc job `FAILED`/`CANCELLED` (cùng đầu vào thì ra cùng kết quả).
+- Đường `file`: lấy chữ từ parse job trước khi xóa. Chữ parse rỗng → `no_text`. Không lấy được chữ parse → `document_text = None` (giữ kết quả đã trả tiền, chỉ là không kiểm tra được trích dẫn).
+- Sau mỗi lượt (thành công hay lỗi): xóa file, extract job, parse job trên LlamaCloud. Xóa lỗi thì chỉ ghi log (chỉ ghi id).
+- Đổi cây trích dẫn của LlamaCloud thành `{đường dẫn trường: [Citation]}` ngay trong adapter (`to_citations`).
 
-**Adapter giả (`fake.py`):** `FakeExtractor(result: ExtractionResult | None = None, error: ExtractorError | None = None, delay_s: float = 0, text: str = "")`. Mặc định trả fixture `tests/fixtures/extraction/cv_basic.json` / `jd_basic.json` theo schema được gửi (CV hay JD). Dùng cho test, và cho dev khi chưa có key (`EXTRACTOR_PROVIDER=fake`: web vẫn chạy được, mọi CV ra cùng một hồ sơ, giống mock).
+**Adapter giả** (`fake.py`): `FakeExtractor(result=None, error=None, delay_s=0)`, ghi lại mọi lời gọi vào `.calls`. Mặc định trả mẫu `providers/extract/fake_data/cv_basic.json` / `jd_basic.json` (CV/JD tự soạn, không phải CV thật), chọn theo schema. Đi kèm app chứ không nằm trong `tests/`, vì dev dùng được khi chưa có key (`EXTRACTOR_PROVIDER=fake`).
 
-**Cấu hình mới (`Settings`):** `extractor_provider: Literal["llamacloud", "fake"] = "fake"`, `llama_cloud_api_key: str | None`, `llama_extract_tier: str` (theo kết luận 4.3), `extract_timeout_s: int = 180`, `analysis_max_concurrency: int = 3` (dùng ở 4.7). Chọn `llamacloud` mà thiếu key → không khởi động, báo rõ.
+**Domain** (`domain/extraction.py`): BE-4.5/4.6/4.7 chỉ gọi `extract_cv(...)` / `extract_jd(...)`, trả `ExtractionOutcome` (`result`, `call`, `method`, `fallback`, `reused`, `extractor_info()`). Bên trong:
+- Đổi `mode` ra lời gọi (`plan_file` / `plan_text`): CV `standard` → đọc chữ tại chỗ; đọc được thì gửi chữ (`economy`), không thì gửi file (`economy`, `fallback = True`). `layout` → file (`economy`). `precise` → file (`high`). JD luôn gửi chữ: `standard` → `economy`, `precise` → `high`; `layout` → `ValueError` (API đã chặn).
+- **Không trích lại tài liệu trùng:** `reuse_key` = sha256(nội dung + vai trò + `mode` + version prompt + version schema + provider + gói). Cùng người dùng, cùng khóa, đã có lời gọi `ok` thì chép lại output, không gọi provider. Bản chép là một bản ghi `llm_calls` mới trỏ tới CV/JD mới (`params.reused_from`), nên xóa CV cũ không làm mất nó. **Không bao giờ dùng lại output của người dùng khác.**
+- Ghi một bản ghi `llm_calls` cho mỗi lần chạy, kể cả lỗi (lỗi thì ghi trước rồi ném lại `ExtractorError`).
 
-**`llm_calls`** (một bản ghi mỗi lần gọi, kể cả lỗi):
+**Cấu hình** (`Settings`, `.env.example`): `extractor_provider: "llamacloud" | "fake" = "fake"`, `llama_cloud_api_key` (`SecretStr`), `llama_tier_economy = "cost_effective"`, `llama_tier_high = "agentic"`, `extract_max_pages = 6`, `extract_timeout_s = 180`. Chọn `llamacloud` mà thiếu key thì app không khởi động. `analysis_max_concurrency` để BE-4.7 thêm. Extractor tạo trong lifespan (`app.state.extractor`, đóng khi tắt); route lấy qua `deps.get_extractor`.
+
+**`llm_calls`** (`schemas/llm_call.py`, `db/llm_calls.py`; một bản ghi mỗi lần gọi, dùng chung cho mọi vai trò AI sau này):
 
 ```json
 {
   "_id": "uuid", "user_id": "uuid",
   "role": "A1_cv_profiler | A2_jd_analyzer",
   "ref": { "kind": "cv", "id": "uuid", "attempt_id": "uuid" },
-  "provider": "llamacloud", "model": "agentic",
-  "prompt_version": "cv_extract_v1", "schema_version": "cv-1",
+  "provider": "llamacloud", "model": "cost_effective",
+  "prompt_version": "cv_extract_v1", "output_schema_version": "cv-1",
   "status": "ok | error", "error_code": null, "retries": 0,
-  "latency_ms": 23100, "usage": { "credits": 0 },
-  "output": { "...": "data + citations" },
-  "created_at": "..."
+  "latency_ms": 31000, "usage": { "credits": 25.0 },
+  "params": { "mode": "standard", "method": "text", "fallback": false, "reused_from": "uuid?" },
+  "reuse_key": "sha256",
+  "output": { "...": "ExtractionResult: data, citations, document_text, ..." },
+  "created_at": "...", "schema_version": 1
 }
 ```
 
-Index `user_id`, `(ref.kind, ref.id)`. `output` có chứa PII nên bị xóa khi xóa CV/JD (bổ sung vào thứ tự xóa ở 2.5) và khi xóa tài khoản.
+`schema_version` là phiên bản cấu trúc document (như mọi collection khác), nên phiên bản schema trích xuất có tên `output_schema_version`. Index `user_reuse_key` (`user_id`, `reuse_key`; tiền tố `user_id` dùng cho xóa tài khoản) và `ref` (`ref.kind`, `ref.id`). `output` chứa PII nên bị xóa cùng CV/JD (bước 4 ở 2.5); xóa tài khoản (BE-8) cũng phải xóa theo `user_id`.
 
-**Test bắt buộc** (bằng adapter giả và mock HTTP, không gọi thật):
-- Lỗi 5xx hai lần rồi thành công → kết quả đúng, `retries = 2`.
-- Lỗi 5xx ba lần → `ExtractorError("provider_error")`.
-- Lỗi 400 → không thử lại.
-- Quá thời gian → `timeout`.
-- Chuyển metadata trích dẫn mẫu của LlamaCloud (lấy từ fixture 4.3) sang `Citation` đúng.
-- Thiếu key khi chọn `llamacloud` → lỗi cấu hình.
-- 1 test gọi thật, đánh dấu `@pytest.mark.llamacloud`, chỉ chạy khi `RUN_LLAMACLOUD_TESTS=1`.
+`ExtractorInfo` (lưu trong `cv_versions` / `jd_versions` từ BE-4.5) thêm `method`, `fallback`, `credits`, `llm_call_id`; lấy bằng `outcome.extractor_info()`.
+
+**Test** (`tests/test_documents.py`, `test_extractor.py`, `test_extraction.py`, thêm vào `test_delete_api.py`): adapter LlamaCloud chạy SDK thật trên server giả (`httpx.MockTransport`): 5xx hai lần rồi thành công (`retries = 2`), 5xx ba lần, 429, 400 không thử lại, job `FAILED`, hết giờ, chữ parse rỗng → `no_text`, dọn dẹp sau mỗi lượt, đổi trích dẫn; thiếu key; chọn mode, fallback, dùng lại, không dùng lại giữa hai người dùng, ghi lỗi; xóa CV/JD xóa `llm_calls`. 1 test gọi thật (`@pytest.mark.llamacloud`, chỉ chạy khi `RUN_LLAMACLOUD_TESTS=1`), đã chạy qua ngày 2026-10-13.
 
 **Output / xong khi:**
-- [ ] Interface + 2 adapter + `llm_calls`; test qua.
-- [ ] `backend/README.md` và `.env.example` có biến môi trường mới.
-- [ ] `grep -r llama_cloud backend/app/domain` không ra kết quả (domain không import SDK).
+- [x] Interface + 2 adapter + `llm_calls`; test qua.
+- [x] `backend/README.md` và `.env.example` có biến môi trường mới.
+- [x] `grep -r llama_cloud backend/app/domain` không ra kết quả (domain không import SDK).
 
 ---
 
@@ -728,7 +716,7 @@ def build_requirements(extraction: JdExtraction, jd_text: str) -> tuple[JdRequir
 
 **Các bước job CV:**
 1. `step = upload`: file đã lưu (xong ngay). Chờ semaphore.
-2. `status = running`, `step = extract`: đọc file từ GridFS → `extractor.extract(...)` với `cv_json_schema` + prompt `cv_extract`. Ghi `llm_calls`.
+2. `status = running`, `step = extract`: đọc file từ GridFS → `extract_cv(...)` (`domain/extraction.py`, BE-4.4: tự chọn cách gửi theo `mode`, tự dùng lại kết quả trùng, tự ghi `llm_calls`).
 3. `step = profile`: `CvExtraction.model_validate(result.data)`. Sai schema → coi là lỗi provider. Rồi `build_profile(...)` (4.5).
 4. **Trước khi chèn:** đọc lại CV; nếu đã bị xóa hoặc `deleting = true` → dừng, không ghi gì.
 5. Chèn phiên bản `latest + 1`: `origin = analysis` nếu là bản đầu, `reanalysis` nếu đã có bản trước; lưu `extraction`, `citations`, `extractor`.
