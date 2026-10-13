@@ -68,12 +68,22 @@ describe('CvDetailPage', () => {
     expect(await main().findByText('Đang xem bản 1 (chỉ xem)')).toBeInTheDocument()
   })
 
-  it('re-analyzes the CV, shows the progress, then the new version', async () => {
+  it('re-analyzes the CV in the chosen mode, shows the progress, then the new version', async () => {
     const user = userEvent.setup()
     const before = latestVersion()
     renderRoute(`/library/cv/${CV_ID}`)
     await user.click(await main().findByRole('button', { name: 'Tùy chọn cho CV CV Backend 2026' }))
     await user.click(await screen.findByRole('menuitem', { name: 'Phân tích lại' }))
+
+    // The newest version is a user edit: the mode comes from the last analysed one.
+    const dialog = await screen.findByRole('dialog', { name: 'Phân tích lại CV' })
+    expect(dialog).toHaveTextContent('Kết quả thiếu hoặc sai? Thử Đọc bố cục hoặc Chính xác cao.')
+    expect(within(dialog).getByRole('radio', { name: /Tiêu chuẩn/ })).toBeChecked()
+    expect(within(dialog).getAllByRole('radio')).toHaveLength(3)
+    await user.click(within(dialog).getByRole('radio', { name: /Chính xác cao/ }))
+    await user.click(within(dialog).getByRole('button', { name: 'Phân tích lại' }))
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
+    expect(db.cvRow(CV_ID)!.job!.mode).toBe('precise')
     expect(await main().findByRole('list', { name: 'Tiến trình phân tích' })).toBeInTheDocument()
 
     // Let the simulated analysis finish.
@@ -86,6 +96,26 @@ describe('CvDetailPage', () => {
       ),
     ).toBeInTheDocument()
     expect(main().queryByRole('list', { name: 'Tiến trình phân tích' })).toBeNull()
+
+    // The history says which mode made each version.
+    await user.click(main().getByRole('button', { name: /xem lịch sử phiên bản/ }))
+    expect(
+      await screen.findByRole('menuitemradio', { name: new RegExp(`^bản ${before + 1}`) }),
+    ).toHaveTextContent('Phân tích lại (Chính xác cao)')
+    expect(screen.getByRole('menuitemradio', { name: /^bản 1/ })).toHaveTextContent(
+      'AI phân tích (Tiêu chuẩn)',
+    )
+  })
+
+  it('cancels re-analysis without running it', async () => {
+    const user = userEvent.setup()
+    renderRoute(`/library/cv/${CV_ID}`)
+    await user.click(await main().findByRole('button', { name: 'Tùy chọn cho CV CV Backend 2026' }))
+    await user.click(await screen.findByRole('menuitem', { name: 'Phân tích lại' }))
+    const dialog = await screen.findByRole('dialog', { name: 'Phân tích lại CV' })
+    await user.click(within(dialog).getByRole('button', { name: 'Hủy' }))
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
+    expect(db.cvRow(CV_ID)!.job).toBeNull()
   })
 
   it('deletes the CV with its sessions and goes back to the library', async () => {

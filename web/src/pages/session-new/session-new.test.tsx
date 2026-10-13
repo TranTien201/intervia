@@ -28,7 +28,7 @@ function stubCvUpload() {
   server.use(
     http.post('/api/cvs', () => {
       uploads.count += 1
-      return HttpResponse.json(db.cvSummary(db.createCv('cv-moi', 'cv-moi.pdf')), {
+      return HttpResponse.json(db.cvSummary(db.createCv('cv-moi', 'cv-moi.pdf', 'standard')), {
         status: 201,
       })
     }),
@@ -172,12 +172,20 @@ describe('SessionNewPage', () => {
     const user = userEvent.setup()
     // jsdom's File loses its name through FormData + fetch (see stubCvUpload): only check that
     // a multipart request with a file and the suggested name was sent.
-    let sent: { file: boolean; name: FormDataEntryValue | null } | null = null
+    let sent: {
+      file: boolean
+      name: FormDataEntryValue | null
+      mode: FormDataEntryValue | null
+    } | null = null
     server.use(
       http.post('/api/jds', async ({ request }) => {
         const form = await request.formData()
-        sent = { file: typeof form.get('file') !== 'string', name: form.get('name') }
-        const row = db.createJd('jd-acme', db.jdTextFromFile('jd-acme.pdf')!)
+        sent = {
+          file: typeof form.get('file') !== 'string',
+          name: form.get('name'),
+          mode: form.get('mode'),
+        }
+        const row = db.createJd('jd-acme', db.jdTextFromFile('jd-acme.pdf')!, 'standard')
         const { text: _t, ...summary } = db.jdDetail(row)
         return HttpResponse.json(summary, { status: 201 })
       }),
@@ -191,10 +199,13 @@ describe('SessionNewPage', () => {
       new File([new Uint8Array(1024)], 'jd-acme.pdf', { type: 'application/pdf' }),
     )
     expect(main().getByLabelText('Tên JD')).toHaveValue('jd-acme')
+    // "Tùy chọn phân tích" of the new JD (the CV column uses a CV from the library).
+    await user.click(main().getByRole('button', { name: /Tùy chọn phân tích/ }))
+    await user.click(main().getByRole('radio', { name: /Chính xác cao/ }))
     await pickRoleAndLevel(user)
     await user.click(main().getByRole('button', { name: /Tiếp tục/ }))
     await waitFor(() => expect(router.state.location.pathname).toMatch(/\/match$/))
-    expect(sent).toEqual({ file: true, name: 'jd-acme' })
+    expect(sent).toEqual({ file: true, name: 'jd-acme', mode: 'precise' })
   })
 
   it('asks for a JD file and shows the server error under it', async () => {

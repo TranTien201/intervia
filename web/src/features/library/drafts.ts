@@ -1,6 +1,8 @@
 import { ApiError } from '@/api/client'
-import { LIMITS } from '@/api/types'
+import type { NewJd } from '@/api/hooks'
+import { LIMITS, type ExtractionMode } from '@/api/types'
 import { errorMessage } from '@/lib/errors'
+import { DEFAULT_EXTRACTION_MODE } from './extraction-modes'
 
 // Form state + checks for adding a CV / JD (see fields.tsx).
 
@@ -42,9 +44,15 @@ export interface CvDraft {
   name: string
   /** The user typed a name: stop replacing it with the file name. */
   nameTouched: boolean
+  mode: ExtractionMode
 }
 
-export const emptyCvDraft: CvDraft = { file: null, name: '', nameTouched: false }
+export const emptyCvDraft: CvDraft = {
+  file: null,
+  name: '',
+  nameTouched: false,
+  mode: DEFAULT_EXTRACTION_MODE,
+}
 
 /** A JD is pasted as text or uploaded as a PDF/DOCX file (the server extracts the text). */
 export type JdInput = 'paste' | 'file'
@@ -56,6 +64,8 @@ export interface JdDraft {
   file: File | null
   name: string
   nameTouched: boolean
+  /** `standard` or `precise` only: a JD is always text. */
+  mode: ExtractionMode
 }
 
 export const emptyJdDraft: JdDraft = {
@@ -64,6 +74,7 @@ export const emptyJdDraft: JdDraft = {
   file: null,
   name: '',
   nameTouched: false,
+  mode: DEFAULT_EXTRACTION_MODE,
 }
 
 export function validateJdDraft(d: JdDraft): FieldErrors {
@@ -73,10 +84,13 @@ export function validateJdDraft(d: JdDraft): FieldErrors {
 }
 
 /** Body for `POST /jds` (`useCreateJd`). Call after `validateJdDraft` passed. */
-export const jdInputOf = (d: JdDraft) =>
+export const jdInputOf = (d: JdDraft): NewJd =>
   d.input === 'file'
-    ? { file: d.file!, name: d.name.trim() }
-    : { text: d.text, name: d.name.trim() }
+    ? { file: d.file!, name: d.name.trim(), mode: d.mode }
+    : { text: d.text, name: d.name.trim(), mode: d.mode }
+
+/** Body for `POST /cvs` (`useUploadCv`). Call after the file and name were checked. */
+export const cvInputOf = (d: CvDraft) => ({ file: d.file!, name: d.name.trim(), mode: d.mode })
 
 /** What was sent for this draft: tells a retry whether the JD is already saved. */
 export const jdSourceOf = (d: JdDraft): File | string => (d.input === 'file' ? d.file! : d.text)

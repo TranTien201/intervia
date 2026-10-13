@@ -163,7 +163,7 @@ async def list_versions(db: AsyncDatabase, user_id: str, cv_id: str) -> list[Ver
         db[VERSIONS]
         .find(
             {"cv_id": cv_id, "user_id": user_id},
-            {"version": 1, "created_at": 1, "origin": 1},
+            {"version": 1, "created_at": 1, "origin": 1, "mode": 1},
         )
         .sort("version", DESCENDING)
     )

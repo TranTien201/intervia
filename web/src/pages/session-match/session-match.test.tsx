@@ -10,8 +10,8 @@ const main = () => within(screen.getByRole('main'))
 
 /** A draft session whose CV and JD are both still being analysed. */
 function analysingSession(cvFile = 'cv-moi.pdf') {
-  const cv = db.createCv('CV mới', cvFile)
-  const jd = db.createJd('JD mới', 'Backend Engineer\nYêu cầu: Python')
+  const cv = db.createCv('CV mới', cvFile, 'standard')
+  const jd = db.createJd('JD mới', 'Backend Engineer\nYêu cầu: Python', 'standard')
   const s = db.createSession({
     cv_id: cv.id,
     jd_id: jd.id,

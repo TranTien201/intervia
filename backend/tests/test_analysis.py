@@ -227,6 +227,9 @@ async def test_cv_reanalyze(h: Harness, db):
     assert third is not None and third.mode == "precise"
     assert fake.calls[-1].quality == "high"
 
+    r = await h.client.get(f"/api/cvs/{cv_id}/versions")
+    assert [v["mode"] for v in r.json()] == ["precise", "layout", "layout"]
+
 
 async def test_cv_reanalyze_while_running_starts_no_second_job(h: Harness, db):
     gate = asyncio.Event()

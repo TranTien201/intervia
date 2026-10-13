@@ -195,7 +195,8 @@ async def test_get_versions(client, cv_id):
         (2, "user_edit"),
         (1, "analysis"),
     ]
-    assert set(listed[0]) == {"version", "created_at", "origin"}
+    assert set(listed[0]) == {"version", "created_at", "origin", "mode"}
+    assert [v["mode"] for v in listed] == [None, None, "standard"]
 
     assert (await client.get(f"/api/cvs/{cv_id}/versions/latest")).json()["version"] == 3
     v1 = (await client.get(f"/api/cvs/{cv_id}/versions/1")).json()

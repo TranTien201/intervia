@@ -273,14 +273,15 @@ Lý do: `docs/design/extraction.md` mục 5. Type mới: `docs/design/api.md`.
 
 ### UI-5.6 Chọn chế độ trích xuất (thêm 2026-10-13)
 Thiết kế: `docs/design/ui-pages.md` trang 2 ("Tùy chọn phân tích"), trang 7, 8, 9 ("Phân tích lại"); `docs/design/extraction.md` mục 8; type ở `docs/design/api.md`.
-- [ ] `src/api/types.ts`: thêm `ExtractionMode`; `CvVersion.mode`, `JdVersion.mode`. Hàm API tải CV / thêm JD / phân tích lại nhận `mode`.
-- [ ] Thành phần `ExtractionModePicker` (dùng chung): 3 lựa chọn dạng radio có mô tả và nhãn chi phí, thời gian; prop `kind: "cv" | "jd"` (JD ẩn "Đọc bố cục"). Nhãn tiếng Việt để trong một hằng, không rải trong trang.
-- [ ] Trang 2 và nút tải ở Thư viện: mục "Tùy chọn phân tích" thu gọn dưới ô CV mới / JD mới, mặc định Tiêu chuẩn; gửi `mode` cùng form.
-- [ ] "Phân tích lại" (trang 8, 9): hộp thoại chọn chế độ, chọn sẵn chế độ của bản mới nhất, có dòng gợi ý khi kết quả chưa tốt.
-- [ ] Lịch sử phiên bản: hiện chế độ của từng bản (bản người dùng sửa thì không có).
-- [ ] Mock: nhận và lưu `mode`; JD nhận `layout` → 422 `fields.mode`; thời gian giả lập theo chế độ (vd `precise` lâu hơn) để thấy tiến trình.
-- [ ] Test: picker (JD không có "Đọc bố cục"), gửi đúng `mode` khi tạo CV/JD và khi phân tích lại.
+- [x] `src/api/types.ts`: thêm `ExtractionMode`; `CvVersion.mode`, `JdVersion.mode`. Hàm API tải CV / thêm JD / phân tích lại nhận `mode`.
+- [x] Thành phần `ExtractionModePicker` (dùng chung): 3 lựa chọn dạng radio có mô tả và nhãn chi phí, thời gian; prop `kind: "cv" | "jd"` (JD ẩn "Đọc bố cục"). Nhãn tiếng Việt để trong một hằng, không rải trong trang.
+- [x] Trang 2 và nút tải ở Thư viện: mục "Tùy chọn phân tích" thu gọn dưới ô CV mới / JD mới, mặc định Tiêu chuẩn; gửi `mode` cùng form.
+- [x] "Phân tích lại" (trang 8, 9): hộp thoại chọn chế độ, chọn sẵn chế độ của bản mới nhất, có dòng gợi ý khi kết quả chưa tốt.
+- [x] Lịch sử phiên bản: hiện chế độ của từng bản (bản người dùng sửa thì không có).
+- [x] Mock: nhận và lưu `mode`; JD nhận `layout` → 422 `fields.mode`; thời gian giả lập theo chế độ (vd `precise` lâu hơn) để thấy tiến trình.
+- [x] Test: picker (JD không có "Đọc bố cục"), gửi đúng `mode` khi tạo CV/JD và khi phân tích lại.
 - **Xong khi:** `npm test`, `npm run typecheck`, `npm run lint` qua.
+- **Đã xong (2026-10-13):** hằng và nhãn ở `src/features/library/extraction-modes.ts` (thời gian, chi phí theo spike, riêng cho CV và JD vì JD ngắn hơn: JD Tiêu chuẩn ~25 giây, Chính xác cao ~1 phút · tốn gấp 3); `ExtractionModePicker` và `AnalysisOptions` ("Tùy chọn phân tích" thu gọn, nút ghi chế độ đang chọn) ở `ExtractionModePicker.tsx`. `CvDraft`/`JdDraft` có `mode`; `CvUploadFields`/`JdFields` chứa luôn mục tùy chọn nên trang 2 và hộp thoại thư viện dùng chung. "Phân tích lại" (trang 8, 9) mở `ReanalyzeDialog` (`dialogs.tsx`), chọn sẵn chế độ của bản phân tích gần nhất (bỏ qua bản người dùng sửa; không có thì Tiêu chuẩn). Nút "Thử lại" khi phân tích lỗi (trang 3, 8, 9) không hỏi chế độ, gửi không kèm `mode` để server dùng lại chế độ cũ. Menu lịch sử ghi "AI phân tích (Tiêu chuẩn)", bản người dùng sửa không ghi. **Backend:** `GET …/versions` thêm `mode` (sửa `VersionInfo`, `api.md`) để lịch sử hiện được chế độ. Mock: lưu `mode` theo CV/JD và theo bản, `ANALYSIS_MS_BY_MODE` (5 / 8 / 12 giây), JD gửi `layout` → 422 `fields.mode`, phân tích lại khi đang chạy trả tiến trình hiện tại; khóa sessionStorage đổi thành `intervia-mock-db-v3`. Test ở `cv-detail`, `jd-detail`, `library`, `session-new`, `mock-api`.
 
 ## UI-6. Phỏng vấn chế độ Text `/sessions/:id/interview` [5]
 

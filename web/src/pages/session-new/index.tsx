@@ -12,6 +12,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
 import {
+  cvInputOf,
   emptyCvDraft,
   emptyJdDraft,
   serverFieldErrors,
@@ -146,7 +147,7 @@ function SessionNewForm({
     if (cvSource === 'existing') return cvId
     const file = cvDraft.file!
     if (savedCv.current?.file === file) return savedCv.current.id
-    const cv = await uploadCv.mutateAsync({ file, name: cvDraft.name.trim() })
+    const cv = await uploadCv.mutateAsync(cvInputOf(cvDraft))
     savedCv.current = { file, id: cv.id }
     return cv.id
   }

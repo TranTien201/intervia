@@ -64,6 +64,7 @@ class VersionInfo(BaseModel):
     version: int
     created_at: datetime
     origin: VersionOrigin
+    mode: ExtractionMode | None = None  # None for user_edit
 
 
 class AnalysisStep(BaseModel):

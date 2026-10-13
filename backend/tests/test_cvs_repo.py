@@ -84,6 +84,7 @@ async def test_latest_version_after_three_inserts(cv_db):
     assert await cvs.latest_version(cv_db, cv.id) == 3
     assert (await cvs.get_cv(cv_db, USER_A, cv.id)).latest_version == 3
     assert [v.version for v in await cvs.list_versions(cv_db, USER_A, cv.id)] == [3, 2, 1]
+    assert [v.mode for v in await cvs.list_versions(cv_db, USER_A, cv.id)] == [None] * 3
 
     v2 = await cvs.get_version(cv_db, USER_A, cv.id, 2)
     assert v2.profile.skills[0].name == "Python v2"

@@ -69,6 +69,21 @@ describe('JdDetailPage', () => {
     expect(row('Thiết kế API').queryByRole('button')).toBeNull()
   })
 
+  it('re-analyzes the JD with only the modes a JD has', async () => {
+    const user = userEvent.setup()
+    renderRoute(`/library/jd/${JD_ID}`)
+    await user.click(await main().findByRole('button', { name: /^Tùy chọn cho JD/ }))
+    await user.click(await screen.findByRole('menuitem', { name: 'Phân tích lại' }))
+    const dialog = await screen.findByRole('dialog', { name: 'Phân tích lại JD' })
+    expect(dialog).toHaveTextContent('Kết quả thiếu hoặc sai? Thử Chính xác cao.')
+    expect(within(dialog).getAllByRole('radio')).toHaveLength(2)
+    expect(within(dialog).queryByRole('radio', { name: /Đọc bố cục/ })).toBeNull()
+    await user.click(within(dialog).getByRole('radio', { name: /Chính xác cao/ }))
+    await user.click(within(dialog).getByRole('button', { name: 'Phân tích lại' }))
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
+    expect(db.jdRow(JD_ID)!.job!.mode).toBe('precise')
+  })
+
   it('deletes the JD and goes back to the JD tab of the library', async () => {
     const user = userEvent.setup()
     const { router } = renderRoute(`/library/jd/${JD_ID}`)

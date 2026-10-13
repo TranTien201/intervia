@@ -170,7 +170,7 @@ interface AccountData {
 | PATCH | `/api/cvs/{id}` | `{name}` | `CvSummary` |
 | DELETE | `/api/cvs/{id}` | | 204, xóa kèm mọi phiên dùng CV này |
 | GET | `/api/cvs/{id}/analysis` | | `AnalysisProgress` |
-| GET | `/api/cvs/{id}/versions` | | `{version, created_at, origin}[]` |
+| GET | `/api/cvs/{id}/versions` | | `{version, created_at, origin, mode}[]` (`mode` null khi `user_edit`) |
 | GET | `/api/cvs/{id}/versions/{v}` | | `CvVersion` (`v` = `latest` được) |
 | POST | `/api/cvs/{id}/versions` | `{base_version, profile}` | `CvVersion` (bản mới). `base_version` cũ hơn bản mới nhất → 409 `version_conflict` |
 | POST | `/api/cvs/{id}/reanalyze` | `{mode?}` (mặc định: chế độ của lần phân tích trước) | `AnalysisProgress` (202). Đang `pending`/`running` thì trả tiến trình hiện tại, không chạy thêm |

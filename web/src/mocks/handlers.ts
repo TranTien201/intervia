@@ -10,6 +10,7 @@ import type {
   CandidateProfile,
   Credentials,
   EventItem,
+  ExtractionMode,
   JdRequirements,
   Level,
   Mode,
@@ -32,6 +33,33 @@ const fail = (status: number, code: string, message: string, fields?: Record<str
   HttpResponse.json({ error: { code, message, ...(fields ? { fields } : {}) } }, { status })
 
 const notFound = () => fail(404, 'not_found', 'Không tìm thấy.')
+
+const CV_MODES: ExtractionMode[] = ['standard', 'layout', 'precise']
+const JD_MODES: ExtractionMode[] = ['standard', 'precise']
+
+/**
+ * `mode` of an upload / re-analysis, as the backend checks it (api.md): missing → `fallback`,
+ * unknown or not allowed for this kind (`layout` for a JD) → a 422 field error.
+ */
+function parseMode(
+  raw: unknown,
+  allowed: ExtractionMode[],
+  fallback: ExtractionMode,
+): ExtractionMode | { error: string } {
+  if (raw === undefined || raw === null || raw === '') return fallback
+  return allowed.includes(raw as ExtractionMode)
+    ? (raw as ExtractionMode)
+    : { error: `Chế độ phân tích phải là một trong: ${allowed.join(', ')}.` }
+}
+
+const badMode = (error: string) =>
+  fail(422, 'validation_error', 'Dữ liệu chưa hợp lệ.', { mode: error })
+
+/** JSON body of a request, or `{}` when there is none (`reanalyze` takes an optional body). */
+async function jsonBody<T extends object>(request: Request): Promise<Partial<T>> {
+  const raw = await request.text()
+  return raw ? (JSON.parse(raw) as Partial<T>) : {}
+}
 
 type Resolver<P extends PathParams> = HttpResponseResolver<P, DefaultBodyType, undefined>
 
@@ -228,7 +256,9 @@ export const handlers = [
       return fail(415, 'unsupported_file', 'Chỉ nhận file PDF hoặc DOCX.')
     if (file.size > LIMITS.cvMaxBytes) return fail(413, 'file_too_large', 'File lớn hơn 5 MB.')
     if (!name) return fail(422, 'validation_error', 'Thiếu tên CV.', { name: 'Đặt tên cho CV.' })
-    const row = db.createCv(name.slice(0, LIMITS.nameMaxChars), file.name)
+    const mode = parseMode(form.get('mode'), CV_MODES, 'standard')
+    if (typeof mode === 'object') return badMode(mode.error)
+    const row = db.createCv(name.slice(0, LIMITS.nameMaxChars), file.name, mode)
     return HttpResponse.json(db.cvSummary(row), { status: 201 })
   }),
   get<{ id: string }>('/cvs/:id', ({ params }) => {
@@ -260,7 +290,7 @@ export const handlers = [
     db.cvSummary(c)
     return HttpResponse.json(
       c.versions
-        .map(({ version, created_at, origin }) => ({ version, created_at, origin }))
+        .map(({ version, created_at, origin, mode }) => ({ version, created_at, origin, mode }))
         .reverse(),
     )
   }),
@@ -283,10 +313,14 @@ export const handlers = [
     }
     return HttpResponse.json(db.saveCvVersion(c, body.profile), { status: 201 })
   }),
-  post<{ id: string }>('/cvs/:id/reanalyze', ({ params }) => {
+  post<{ id: string }>('/cvs/:id/reanalyze', async ({ params, request }) => {
     const c = db.cvRow(params.id)
     if (!c) return notFound()
-    db.reanalyzeCv(c)
+    const mode = parseMode((await jsonBody<{ mode: string }>(request)).mode, CV_MODES, c.mode)
+    if (typeof mode === 'object') return badMode(mode.error)
+    if (db.cvSummary(c).analysis_status === 'running')
+      return HttpResponse.json(db.cvAnalysis(c), { status: 202 })
+    db.reanalyzeCv(c, mode)
     return HttpResponse.json(db.cvAnalysis(c), { status: 202 })
   }),
   get<{ id: string }>('/cvs/:id/file', ({ params }) => {
@@ -306,11 +340,13 @@ export const handlers = [
     // Pasted text as JSON, or a PDF/DOCX file as multipart (text extracted right away).
     let name: string | undefined
     let text: string | undefined
+    let rawMode: unknown
     let textField: 'text' | 'file' = 'text'
     if (request.headers.get('content-type')?.includes('multipart/form-data')) {
       const form = await request.formData()
       const file = form.get('file')
       name = String(form.get('name') ?? '')
+      rawMode = form.get('mode')
       textField = 'file'
       // Duck-typed: jsdom and Node each have their own File class in tests.
       if (file === null || typeof file === 'string')
@@ -323,16 +359,26 @@ export const handlers = [
         return fail(422, 'no_text_in_file', 'File này là ảnh scan, không có chữ để đọc.')
       text = extracted
     } else {
-      ;({ name, text } = (await request.json()) as { name?: string; text?: string })
+      ;({
+        name,
+        text,
+        mode: rawMode,
+      } = (await request.json()) as {
+        name?: string
+        text?: string
+        mode?: string
+      })
     }
+    const mode = parseMode(rawMode, JD_MODES, 'standard')
     const fields: Record<string, string> = {}
     if (!text?.trim()) fields[textField] = 'Dán nội dung JD.'
     else if (text.length > LIMITS.jdMaxChars)
       fields[textField] = `JD dài quá ${LIMITS.jdMaxChars.toLocaleString('vi-VN')} ký tự.`
     if (!name?.trim()) fields.name = 'Đặt tên cho JD.'
-    if (Object.keys(fields).length)
+    if (typeof mode === 'object') fields.mode = mode.error
+    if (Object.keys(fields).length || typeof mode === 'object')
       return fail(422, 'validation_error', 'Dữ liệu chưa hợp lệ.', fields)
-    const row = db.createJd(name!.trim().slice(0, LIMITS.nameMaxChars), text!)
+    const row = db.createJd(name!.trim().slice(0, LIMITS.nameMaxChars), text!, mode)
     const { text: _t, ...summary } = db.jdDetail(row)
     return HttpResponse.json(summary, { status: 201 })
   }),
@@ -366,7 +412,7 @@ export const handlers = [
     db.jdDetail(j)
     return HttpResponse.json(
       j.versions
-        .map(({ version, created_at, origin }) => ({ version, created_at, origin }))
+        .map(({ version, created_at, origin, mode }) => ({ version, created_at, origin, mode }))
         .reverse(),
     )
   }),
@@ -389,10 +435,14 @@ export const handlers = [
     }
     return HttpResponse.json(db.saveJdVersion(j, body.requirements), { status: 201 })
   }),
-  post<{ id: string }>('/jds/:id/reanalyze', ({ params }) => {
+  post<{ id: string }>('/jds/:id/reanalyze', async ({ params, request }) => {
     const j = db.jdRow(params.id)
     if (!j) return notFound()
-    db.reanalyzeJd(j)
+    const mode = parseMode((await jsonBody<{ mode: string }>(request)).mode, JD_MODES, j.mode)
+    if (typeof mode === 'object') return badMode(mode.error)
+    if (db.jdDetail(j).analysis_status === 'running')
+      return HttpResponse.json(db.jdAnalysis(j), { status: 202 })
+    db.reanalyzeJd(j, mode)
     return HttpResponse.json(db.jdAnalysis(j), { status: 202 })
   }),
   get<{ id: string }>('/jds/:id/sessions', ({ params }) =>

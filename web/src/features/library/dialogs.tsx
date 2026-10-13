@@ -1,5 +1,13 @@
 import { useState, type FormEvent, type ReactNode } from 'react'
-import { useCreateJd, useRenameCv, useRenameJd, useUploadCv } from '@/api/hooks'
+import {
+  useCreateJd,
+  useReanalyzeCv,
+  useReanalyzeJd,
+  useRenameCv,
+  useRenameJd,
+  useUploadCv,
+} from '@/api/hooks'
+import type { ExtractionMode } from '@/api/types'
 import { Button } from '@/components/ui/button'
 import {
   Dialog,
@@ -11,7 +19,10 @@ import {
 } from '@/components/ui/dialog'
 import { errorMessage } from '@/lib/errors'
 import { notifySaved } from '@/lib/notify'
+import { ExtractionModePicker } from './ExtractionModePicker'
+import { reanalyzeHint } from './extraction-modes'
 import {
+  cvInputOf,
   emptyCvDraft,
   emptyJdDraft,
   jdInputOf,
@@ -100,20 +111,17 @@ export function AddCvDialog({ onClose }: { onClose: () => void }) {
     setErrors(next)
     setFormError(null)
     if (hasErrors(next) || !draft.file) return
-    upload.mutate(
-      { file: draft.file, name: draft.name.trim() },
-      {
-        onSuccess: () => {
-          notifySaved('Đã thêm CV', 'AI đang đọc CV, xong sẽ hiện trong danh sách.')
-          onClose()
-        },
-        onError: (err) => {
-          const fields = serverFieldErrors(err)
-          if (fields) setErrors(fields)
-          else setFormError(errorMessage(err))
-        },
+    upload.mutate(cvInputOf(draft), {
+      onSuccess: () => {
+        notifySaved('Đã thêm CV', 'AI đang đọc CV, xong sẽ hiện trong danh sách.')
+        onClose()
       },
-    )
+      onError: (err) => {
+        const fields = serverFieldErrors(err)
+        if (fields) setErrors(fields)
+        else setFormError(errorMessage(err))
+      },
+    })
   }
 
   return (
@@ -234,6 +242,58 @@ export function RenameDialog({
         error={error}
         disabled={rename.isPending}
       />
+    </FormDialog>
+  )
+}
+
+/** "Phân tích lại": pick the extraction mode, then run the analysis again (new version). */
+export function ReanalyzeDialog({
+  kind,
+  id,
+  initialMode,
+  onClose,
+}: {
+  kind: 'cv' | 'jd'
+  id: string
+  initialMode: ExtractionMode
+  onClose: () => void
+}) {
+  const reanalyzeCv = useReanalyzeCv()
+  const reanalyzeJd = useReanalyzeJd()
+  const reanalyze = kind === 'cv' ? reanalyzeCv : reanalyzeJd
+  // A JD has no layout mode: an old value falls back to the default.
+  const [mode, setMode] = useState<ExtractionMode>(
+    kind === 'jd' && initialMode === 'layout' ? 'standard' : initialMode,
+  )
+  const [formError, setFormError] = useState<string | null>(null)
+  const label = kind === 'cv' ? 'CV' : 'JD'
+
+  const submit = () => {
+    setFormError(null)
+    reanalyze.mutate(
+      { id, mode },
+      { onSuccess: onClose, onError: (err) => setFormError(errorMessage(err)) },
+    )
+  }
+
+  return (
+    <FormDialog
+      open
+      onOpenChange={(o) => !o && onClose()}
+      title={`Phân tích lại ${label}`}
+      description="Kết quả thành một bản mới; các bản cũ vẫn còn trong lịch sử."
+      submitLabel="Phân tích lại"
+      pending={reanalyze.isPending}
+      formError={formError}
+      onSubmit={submit}
+    >
+      <ExtractionModePicker
+        kind={kind}
+        value={mode}
+        onChange={setMode}
+        disabled={reanalyze.isPending}
+      />
+      <p className="text-sm text-ink2">{reanalyzeHint(kind)}</p>
     </FormDialog>
   )
 }

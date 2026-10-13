@@ -48,9 +48,11 @@ describe('LibraryPage', () => {
   it('uploads a CV, suggesting the name from the file', async () => {
     // jsdom's File/FormData can't go through Node's fetch, so stub the upload itself.
     let posted = 0
+    let mode: unknown = null
     server.use(
-      http.post('/api/cvs', () => {
+      http.post('/api/cvs', async ({ request }) => {
         posted += 1
+        mode = (await request.formData()).get('mode')
         return HttpResponse.json({}, { status: 201 })
       }),
     )
@@ -70,9 +72,20 @@ describe('LibraryPage', () => {
       new File([new Uint8Array(2048)], 'cv-moi.pdf', { type: 'application/pdf' }),
     )
     expect(within(dialog).getByLabelText('Tên CV')).toHaveValue('cv-moi')
+
+    // "Tùy chọn phân tích" is collapsed, on Tiêu chuẩn; open it and pick Đọc bố cục.
+    const options = within(dialog).getByRole('button', { name: /Tùy chọn phân tích/ })
+    expect(options).toHaveAttribute('aria-expanded', 'false')
+    expect(options).toHaveTextContent('Tiêu chuẩn')
+    expect(within(dialog).queryByRole('radio', { name: /Đọc bố cục/ })).toBeNull()
+    await user.click(options)
+    await user.click(within(dialog).getByRole('radio', { name: /Đọc bố cục/ }))
+    expect(options).toHaveTextContent('Đọc bố cục')
+
     await user.click(within(dialog).getByRole('button', { name: 'Tải lên' }))
     await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
     expect(posted).toBe(1)
+    expect(mode).toBe('layout')
   })
 
   it('checks the JD form before sending', async () => {
@@ -91,6 +104,28 @@ describe('LibraryPage', () => {
     expect(within(dialog).getByLabelText('Tên JD')).toHaveValue('Senior Data Engineer')
     await user.click(within(dialog).getByRole('button', { name: 'Thêm JD' }))
     expect(await main().findByText('Senior Data Engineer')).toBeInTheDocument()
+  })
+
+  it('adds a JD in the chosen mode, without the layout mode', async () => {
+    let body: unknown = null
+    server.use(
+      http.post('/api/jds', async ({ request }) => {
+        body = await request.json()
+        return HttpResponse.json({}, { status: 201 })
+      }),
+    )
+    const user = userEvent.setup()
+    renderRoute('/library?tab=jd')
+    await user.click(await main().findByRole('button', { name: 'Thêm JD' }))
+    const dialog = await screen.findByRole('dialog', { name: 'Thêm JD' })
+    await user.type(within(dialog).getByLabelText('Nội dung JD'), 'Data Engineer')
+    await user.click(within(dialog).getByRole('button', { name: /Tùy chọn phân tích/ }))
+    expect(within(dialog).getAllByRole('radio')).toHaveLength(2)
+    expect(within(dialog).queryByRole('radio', { name: /Đọc bố cục/ })).toBeNull()
+    await user.click(within(dialog).getByRole('radio', { name: /Chính xác cao/ }))
+    await user.click(within(dialog).getByRole('button', { name: 'Thêm JD' }))
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
+    expect(body).toEqual({ name: 'Data Engineer', text: 'Data Engineer', mode: 'precise' })
   })
 
   it('renames from the ⋮ menu', async () => {

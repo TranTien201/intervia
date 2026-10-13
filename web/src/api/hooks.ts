@@ -14,6 +14,7 @@ import type {
   Credentials,
   CvSummary,
   CvVersion,
+  ExtractionMode,
   JdDetail,
   JdRequirements,
   JdSummary,
@@ -142,10 +143,11 @@ export const useCvSessions = (id: string, enabled = true) =>
 export function useUploadCv() {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: ({ file, name }: { file: File; name: string }) => {
+    mutationFn: ({ file, name, mode }: { file: File; name: string; mode?: ExtractionMode }) => {
       const form = new FormData()
       form.append('file', file)
       form.append('name', name)
+      if (mode) form.append('mode', mode)
       return request<CvSummary>('/cvs', { method: 'POST', body: form })
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: qk.cvs }),
@@ -192,9 +194,13 @@ export function useSaveCvVersion() {
 export function useReanalyzeCv() {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: (id: string) =>
-      request<AnalysisProgress>(`/cvs/${id}/reanalyze`, { method: 'POST' }),
-    onSuccess: (_d, id) => qc.invalidateQueries({ queryKey: qk.cv(id) }),
+    // No `mode`: the server reuses the mode of the previous analysis.
+    mutationFn: ({ id, mode }: { id: string; mode?: ExtractionMode }) =>
+      request<AnalysisProgress>(`/cvs/${id}/reanalyze`, {
+        method: 'POST',
+        body: mode ? { mode } : {},
+      }),
+    onSuccess: (_d, { id }) => qc.invalidateQueries({ queryKey: qk.cv(id) }),
   })
 }
 
@@ -255,15 +261,19 @@ export const useJdSessions = (id: string, enabled = true) =>
     enabled,
   })
 
+/** Body of `POST /jds`: pasted text, or a PDF/DOCX file. */
+export type NewJd = { name: string; mode?: ExtractionMode } & ({ text: string } | { file: File })
+
 export function useCreateJd() {
   const qc = useQueryClient()
   return useMutation({
     // Pasted text as JSON, or a file as multipart (the server extracts its text).
-    mutationFn: (input: { name: string; text: string } | { name: string; file: File }) => {
+    mutationFn: (input: NewJd) => {
       if ('text' in input) return request<JdSummary>('/jds', { method: 'POST', body: input })
       const form = new FormData()
       form.append('file', input.file)
       form.append('name', input.name)
+      if (input.mode) form.append('mode', input.mode)
       return request<JdSummary>('/jds', { method: 'POST', body: form })
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: qk.jds }),
@@ -309,9 +319,12 @@ export function useSaveJdVersion() {
 export function useReanalyzeJd() {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: (id: string) =>
-      request<AnalysisProgress>(`/jds/${id}/reanalyze`, { method: 'POST' }),
-    onSuccess: (_d, id) => qc.invalidateQueries({ queryKey: qk.jd(id) }),
+    mutationFn: ({ id, mode }: { id: string; mode?: ExtractionMode }) =>
+      request<AnalysisProgress>(`/jds/${id}/reanalyze`, {
+        method: 'POST',
+        body: mode ? { mode } : {},
+      }),
+    onSuccess: (_d, { id }) => qc.invalidateQueries({ queryKey: qk.jd(id) }),
   })
 }
 

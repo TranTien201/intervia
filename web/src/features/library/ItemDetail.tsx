@@ -22,6 +22,8 @@ import { Button } from '@/components/ui/button'
 import { errorMessage } from '@/lib/errors'
 import { notifyError } from '@/lib/notify'
 import { DeleteItemConfirm } from './DeleteItemConfirm'
+import { ReanalyzeDialog } from './dialogs'
+import { lastAnalysisMode } from './extraction-modes'
 import { AnalysisSteps, DetailColumns, DetailHeader, UsedInSessions, VersionPicker } from './detail'
 
 type Kind = 'cv' | 'jd'
@@ -71,6 +73,7 @@ export function ItemDetail({
   const reanalyze = isCv ? reanalyzeCv : reanalyzeJd
   const analysis = useWatchAnalysis(kind, item)
   const [deleting, setDeleting] = useState(false)
+  const [choosingMode, setChoosingMode] = useState(false)
 
   const [params, setParams] = useSearchParams()
   const latest = item.latest_version
@@ -79,8 +82,9 @@ export function ItemDetail({
   const selected = latest !== null && asked > 0 && asked !== latest ? asked : null
   const select = (v: number) => setParams(v === latest ? {} : { v: String(v) }, { replace: true })
 
-  const runAnalysis = () =>
-    reanalyze.mutate(item.id, { onError: (err) => notifyError(errorMessage(err)) })
+  // "Thử lại" after a failure: same mode as the failed attempt (the server's default).
+  const retryAnalysis = () =>
+    reanalyze.mutate({ id: item.id }, { onError: (err) => notifyError(errorMessage(err)) })
   const label = LABEL[kind]
 
   const main = (
@@ -131,7 +135,7 @@ export function ItemDetail({
               variant="error"
               title={`Phân tích ${label} bị lỗi`}
               action={
-                <Button size="sm" variant="secondary" onClick={runAnalysis}>
+                <Button size="sm" variant="secondary" onClick={retryAnalysis}>
                   Thử lại
                 </Button>
               }
@@ -158,12 +162,20 @@ export function ItemDetail({
                 label: 'Phân tích lại',
                 icon: <RefreshCw />,
                 disabled: analysis.active || reanalyze.isPending,
-                onSelect: runAnalysis,
+                onSelect: () => setChoosingMode(true),
               },
             ]}
           />
         }
       />
+      {choosingMode && (
+        <ReanalyzeDialog
+          kind={kind}
+          id={item.id}
+          initialMode={lastAnalysisMode(versions.data)}
+          onClose={() => setChoosingMode(false)}
+        />
+      )}
 
       <DetailColumns main={main} side={<UsedInSessions kind={kind} query={sessions} />} />
 

@@ -5,6 +5,7 @@ import { Input } from '@/components/ui/input'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Textarea } from '@/components/ui/textarea'
 import { cn } from '@/lib/utils'
+import { AnalysisOptions } from './ExtractionModePicker'
 import {
   suggestFileName,
   suggestJdName,
@@ -115,6 +116,12 @@ export function CvUploadFields({
         disabled={disabled}
         onChange={(name) => onChange({ ...value, name, nameTouched: true })}
       />
+      <AnalysisOptions
+        kind="cv"
+        value={value.mode}
+        onChange={(mode) => onChange({ ...value, mode })}
+        disabled={disabled}
+      />
     </div>
   )
 }
@@ -208,6 +215,12 @@ export function JdFields({
         error={errors.name}
         disabled={disabled}
         onChange={(name) => onChange({ ...value, name, nameTouched: true })}
+      />
+      <AnalysisOptions
+        kind="jd"
+        value={value.mode}
+        onChange={(mode) => onChange({ ...value, mode })}
+        disabled={disabled}
       />
     </div>
   )

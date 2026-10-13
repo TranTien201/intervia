@@ -10,6 +10,7 @@ import type {
   Coverage,
   CvSummary,
   CvVersion,
+  ExtractionMode,
   JdDetail,
   JdRequirements,
   JdVersion,
@@ -32,16 +33,25 @@ import {
 import { resetAuth } from './auth'
 
 // Bump when the stored shape changes, so an old tab does not load stale data.
-const STORAGE_KEY = 'intervia-mock-db-v2'
+const STORAGE_KEY = 'intervia-mock-db-v3'
 const HOUR = 3_600_000
 const DAY = 24 * HOUR
 
-/** Simulated analysis duration (task UI-1.6: ~5s through each step). */
-export const ANALYSIS_MS = 5_000
+/**
+ * Simulated analysis duration by extraction mode (task UI-1.6: ~5s through each step for the
+ * default mode; the slower modes take longer, as they do for real, to see the progress).
+ */
+export const ANALYSIS_MS_BY_MODE: Record<ExtractionMode, number> = {
+  standard: 5_000,
+  layout: 8_000,
+  precise: 12_000,
+}
+export const ANALYSIS_MS = ANALYSIS_MS_BY_MODE.standard
 export const BLUEPRINT_MS = 3_000
 
 interface AnalysisJob {
   started_at: number
+  mode: ExtractionMode
   fail_code: string | null
   // profile/requirements produced when the job finishes
   result_version_origin: VersionOrigin
@@ -56,6 +66,8 @@ interface CvRow {
   versions: CvVersion[]
   job: AnalysisJob | null
   text: string
+  /** Mode of the latest analysis: "Phân tích lại" without a mode reuses it. */
+  mode: ExtractionMode
 }
 
 interface JdRow {
@@ -68,6 +80,7 @@ interface JdRow {
   updated_at: string
   versions: JdVersion[]
   job: AnalysisJob | null
+  mode: ExtractionMode
 }
 
 interface BlueprintRow {
@@ -176,11 +189,13 @@ function seed(): DbState {
     updated_at: iso(c.versions.at(-1)!.days_ago * DAY),
     text: `Nội dung CV mẫu (${c.file_name}).`,
     job: null,
+    mode: 'standard',
     versions: c.versions.map((v, i) => ({
       cv_id: c.id,
       version: i + 1,
       created_at: iso(v.days_ago * DAY),
       origin: v.origin,
+      mode: v.origin === 'user_edit' ? null : 'standard',
       profile: clone(v.profile),
     })),
   }))
@@ -193,12 +208,14 @@ function seed(): DbState {
     created_at: iso(j.created_days_ago * DAY),
     updated_at: iso(j.created_days_ago * DAY),
     job: null,
+    mode: 'standard',
     versions: [
       {
         jd_id: j.id,
         version: 1,
         created_at: iso(j.created_days_ago * DAY),
         origin: 'analysis',
+        mode: 'standard',
         requirements: clone(j.requirements),
       },
     ],
@@ -309,7 +326,7 @@ export function cvSummary(c: CvRow): CvSummary {
 export const listCvs = () =>
   [...state.cvs].sort((a, b) => b.updated_at.localeCompare(a.updated_at)).map(cvSummary)
 
-export function createCv(name: string, fileName: string): CvRow {
+export function createCv(name: string, fileName: string, mode: ExtractionMode): CvRow {
   const now = new Date().toISOString()
   const row: CvRow = {
     id: nextId('cv'),
@@ -319,8 +336,10 @@ export function createCv(name: string, fileName: string): CvRow {
     updated_at: now,
     versions: [],
     text: `Nội dung CV (${fileName}).`,
+    mode,
     job: {
       started_at: Date.now(),
+      mode,
       fail_code: failCodeFor(fileName),
       result_version_origin: 'analysis',
     },
@@ -338,13 +357,14 @@ function failCodeFor(fileName: string) {
 
 /** Finish a pending analysis job once its simulated time has passed. */
 function tickCv(c: CvRow) {
-  if (!c.job || c.job.fail_code || Date.now() - c.job.started_at < ANALYSIS_MS) return
+  if (!c.job || c.job.fail_code || Date.now() - c.job.started_at < jobMs(c.job)) return
   const base = c.versions.at(-1)?.profile ?? SEED_CVS[0]!.versions[0]!.profile
   c.versions.push({
     cv_id: c.id,
     version: c.versions.length + 1,
     created_at: new Date().toISOString(),
     origin: c.job.result_version_origin,
+    mode: c.job.mode,
     profile: clone(base),
   })
   c.updated_at = new Date().toISOString()
@@ -371,6 +391,7 @@ export function saveCvVersion(
     version: (c.versions.at(-1)?.version ?? 0) + 1,
     created_at: new Date().toISOString(),
     origin,
+    mode: null,
     profile: clone(profile),
   }
   c.versions.push(v)
@@ -379,9 +400,11 @@ export function saveCvVersion(
   return v
 }
 
-export function reanalyzeCv(c: CvRow) {
+export function reanalyzeCv(c: CvRow, mode: ExtractionMode = c.mode) {
+  c.mode = mode
   c.job = {
     started_at: Date.now(),
+    mode,
     fail_code: mockFlags().analysis_fail ? 'llm_error' : null,
     result_version_origin: 'reanalysis',
   }
@@ -430,7 +453,7 @@ export function jdTextFromFile(fileName: string): string | null {
   return `(Chữ trích từ ${fileName}, giả lập)\n\n${SEED_JDS[0]!.text}`
 }
 
-export function createJd(name: string, text: string): JdRow {
+export function createJd(name: string, text: string, mode: ExtractionMode): JdRow {
   const now = new Date().toISOString()
   const row: JdRow = {
     id: nextId('jd'),
@@ -441,8 +464,10 @@ export function createJd(name: string, text: string): JdRow {
     created_at: now,
     updated_at: now,
     versions: [],
+    mode,
     job: {
       started_at: Date.now(),
+      mode,
       fail_code: mockFlags().analysis_fail ? 'llm_error' : null,
       result_version_origin: 'analysis',
     },
@@ -453,12 +478,13 @@ export function createJd(name: string, text: string): JdRow {
 }
 
 function tickJd(j: JdRow) {
-  if (!j.job || j.job.fail_code || Date.now() - j.job.started_at < ANALYSIS_MS) return
+  if (!j.job || j.job.fail_code || Date.now() - j.job.started_at < jobMs(j.job)) return
   j.versions.push({
     jd_id: j.id,
     version: j.versions.length + 1,
     created_at: new Date().toISOString(),
     origin: j.job.result_version_origin,
+    mode: j.job.mode,
     requirements: j.versions.at(-1)?.requirements ?? requirementsFromText(j.text),
   })
   j.updated_at = new Date().toISOString()
@@ -506,6 +532,7 @@ export function saveJdVersion(j: JdRow, requirements: JdRequirements): JdVersion
     version: (j.versions.at(-1)?.version ?? 0) + 1,
     created_at: new Date().toISOString(),
     origin: 'user_edit',
+    mode: null,
     requirements: clone(requirements),
   }
   j.versions.push(v)
@@ -514,9 +541,11 @@ export function saveJdVersion(j: JdRow, requirements: JdRequirements): JdVersion
   return v
 }
 
-export function reanalyzeJd(j: JdRow) {
+export function reanalyzeJd(j: JdRow, mode: ExtractionMode = j.mode) {
+  j.mode = mode
   j.job = {
     started_at: Date.now(),
+    mode,
     fail_code: mockFlags().analysis_fail ? 'llm_error' : null,
     result_version_origin: 'reanalysis',
   }
@@ -530,8 +559,10 @@ export function deleteJd(id: string) {
 }
 
 // ---------- analysis helpers ----------
+const jobMs = (job: AnalysisJob) => ANALYSIS_MS_BY_MODE[job.mode]
+
 function analysisStatus(job: AnalysisJob | null, hasVersion: boolean): AnalysisProgress['status'] {
-  if (job?.fail_code && Date.now() - job.started_at >= ANALYSIS_MS / 2) return 'failed'
+  if (job?.fail_code && Date.now() - job.started_at >= jobMs(job) / 2) return 'failed'
   if (job) return 'running'
   return hasVersion ? 'done' : 'pending'
 }
@@ -546,8 +577,8 @@ function progress(
     return { status, steps: steps.map((s) => ({ ...s, status: 'done' })), error: null }
   }
   const elapsed = Date.now() - job.started_at
-  const failAt = ANALYSIS_MS / 2
-  const stepMs = ANALYSIS_MS / steps.length
+  const failAt = jobMs(job) / 2
+  const stepMs = jobMs(job) / steps.length
   const current = Math.min(
     steps.length - 1,
     Math.floor((status === 'failed' ? failAt : elapsed) / stepMs),

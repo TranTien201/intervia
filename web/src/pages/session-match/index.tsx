@@ -148,7 +148,7 @@ function AnalysisFailed({
               size="sm"
               variant="secondary"
               loading={reanalyze.isPending}
-              onClick={() => reanalyze.mutate(session[kind].id)}
+              onClick={() => reanalyze.mutate({ id: session[kind].id })}
             >
               Thử lại
             </Button>

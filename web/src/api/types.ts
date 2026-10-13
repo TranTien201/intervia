@@ -7,6 +7,8 @@ export type AnalysisStatus = 'pending' | 'running' | 'done' | 'failed'
 export type SessionStatus = 'draft' | 'in_progress' | 'completed'
 export type SessionStep = 'match' | 'plan' | 'interview' | 'review'
 export type VersionOrigin = 'analysis' | 'user_edit' | 'reanalysis'
+/** Tiêu chuẩn | Đọc bố cục (CV only) | Chính xác cao; docs/design/extraction.md §8. */
+export type ExtractionMode = 'standard' | 'layout' | 'precise'
 
 export interface ApiErrorBody {
   code: string
@@ -104,6 +106,8 @@ export interface VersionInfo {
   version: number
   created_at: string
   origin: VersionOrigin
+  /** Mode of the analysis that made this version; null for `user_edit`. */
+  mode: ExtractionMode | null
 }
 
 export interface CvVersion extends VersionInfo {

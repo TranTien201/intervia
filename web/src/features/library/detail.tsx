@@ -23,6 +23,7 @@ import { shortDate } from '@/lib/format'
 import { notifySaved } from '@/lib/notify'
 import { cn } from '@/lib/utils'
 import { serverFieldErrors, validateName } from './drafts'
+import { extractionModeLabel } from './extraction-modes'
 
 // Building blocks of the CV detail [8] and JD detail [9] pages (UI-4.5, UI-4.6).
 
@@ -181,6 +182,7 @@ export function VersionPicker({
                 <span className="font-medium text-ink">bản {v.version}</span>
                 <span className="text-ink2">
                   {shortDate(v.created_at)} · {ORIGIN_LABEL[v.origin]}
+                  {v.mode && ` (${extractionModeLabel(v.mode)})`}
                   {v.version === latest && ' · mới nhất'}
                 </span>
               </DropdownMenuRadioItem>

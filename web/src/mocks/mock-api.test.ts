@@ -9,8 +9,9 @@ import type {
   JdSummary,
   StreamEvent,
   Transcript,
+  VersionInfo,
 } from '@/api/types'
-import { ANALYSIS_MS, MOCK_MAX_QUESTIONS } from './db'
+import { ANALYSIS_MS, ANALYSIS_MS_BY_MODE, MOCK_MAX_QUESTIONS } from './db'
 
 async function collect(path: string, body: Record<string, unknown>) {
   const events: StreamEvent[] = []
@@ -93,6 +94,39 @@ describe('mock API', () => {
     const err = await request('/jds', { method: 'POST', body: form }).catch((e: unknown) => e)
     expect(err).toBeInstanceOf(ApiError)
     expect((err as ApiError).code).toBe('no_text_in_file')
+  })
+
+  it('takes the extraction mode: slower modes take longer, JD has no layout', async () => {
+    vi.useFakeTimers({ toFake: ['Date'] })
+    const form = new FormData()
+    form.append('file', new File(['x'], 'cv-moi.pdf'))
+    form.append('name', 'CV mới')
+    form.append('mode', 'precise')
+    const cv = await request<CvSummary>('/cvs', { method: 'POST', body: form })
+    vi.setSystemTime(Date.now() + ANALYSIS_MS_BY_MODE.standard + 10)
+    expect((await request<AnalysisProgress>(`/cvs/${cv.id}/analysis`)).status).toBe('running')
+    vi.setSystemTime(Date.now() + ANALYSIS_MS_BY_MODE.precise)
+    expect((await request<AnalysisProgress>(`/cvs/${cv.id}/analysis`)).status).toBe('done')
+    const versions = await request<VersionInfo[]>(`/cvs/${cv.id}/versions`)
+    expect(versions[0]?.mode).toBe('precise')
+
+    // Re-analysis without a mode reuses the previous one.
+    await request(`/cvs/${cv.id}/reanalyze`, { method: 'POST' })
+    vi.setSystemTime(Date.now() + ANALYSIS_MS_BY_MODE.precise + 10)
+    await request(`/cvs/${cv.id}/analysis`)
+    const after = await request<VersionInfo[]>(`/cvs/${cv.id}/versions`)
+    expect(after.map((v) => [v.origin, v.mode])).toEqual([
+      ['reanalysis', 'precise'],
+      ['analysis', 'precise'],
+    ])
+    vi.useRealTimers()
+
+    const err = await request('/jds', {
+      method: 'POST',
+      body: { name: 'JD', text: 'Backend', mode: 'layout' },
+    }).catch((e: unknown) => e)
+    expect(err).toMatchObject({ code: 'validation_error', status: 422 })
+    expect((err as ApiError).fields?.mode).toBeTruthy()
   })
 
   it('rejects deleting a CV that does not exist', async () => {
