@@ -44,6 +44,7 @@
 type Level = "junior" | "mid" | "senior";
 type Mode = "text" | "voice_text" | "voice_voice";        // Text | Nói → Chữ | Nói → Nói
 type AnalysisStatus = "pending" | "running" | "done" | "failed";
+type ExtractionMode = "standard" | "layout" | "precise";    // Tiêu chuẩn | Đọc bố cục (chỉ CV) | Chính xác cao; xem extraction.md mục 8
 type SessionStatus = "draft" | "in_progress" | "completed";
 type SessionStep = "match" | "plan" | "interview" | "review"; // trang web cần mở khi bấm phiên
 
@@ -69,6 +70,7 @@ interface CandidateProfile { skills: Skill[]; experiences: Experience[]; claims:
 interface CvVersion {
   cv_id: string; version: number; created_at: string;
   origin: "analysis" | "user_edit" | "reanalysis";
+  mode: ExtractionMode | null;              // chế độ của lần phân tích tạo ra bản này; null khi origin = user_edit
   profile: CandidateProfile;
 }
 
@@ -82,7 +84,7 @@ interface JdSummary {
 interface JdDetail extends JdSummary { text: string }
 interface Requirement { id: string; name: string; kind: "required" | "preferred"; importance: 1 | 2 | 3; source_quote: string | null }  // name: nhãn ngắn rút từ JD
 interface JdRequirements { requirements: Requirement[] }
-interface JdVersion { jd_id: string; version: number; created_at: string; origin: CvVersion["origin"]; requirements: JdRequirements }
+interface JdVersion { jd_id: string; version: number; created_at: string; origin: CvVersion["origin"]; mode: ExtractionMode | null; requirements: JdRequirements }
 
 // ---- Phân tích ----
 interface AnalysisProgress {
@@ -161,7 +163,7 @@ interface AccountData {
 | Method | Path | Body | Trả về |
 |---|---|---|---|
 | GET | `/api/cvs` | | `CvSummary[]` (mới sửa trước) |
-| POST | `/api/cvs` | multipart: `file`, `name` | `CvSummary` (201), bắt đầu phân tích nền |
+| POST | `/api/cvs` | multipart: `file`, `name`, `mode?` (mặc định `standard`) | `CvSummary` (201), bắt đầu phân tích nền |
 | GET | `/api/cvs/{id}` | | `CvSummary` |
 | PATCH | `/api/cvs/{id}` | `{name}` | `CvSummary` |
 | DELETE | `/api/cvs/{id}` | | 204, xóa kèm mọi phiên dùng CV này |
@@ -169,7 +171,7 @@ interface AccountData {
 | GET | `/api/cvs/{id}/versions` | | `{version, created_at, origin}[]` |
 | GET | `/api/cvs/{id}/versions/{v}` | | `CvVersion` (`v` = `latest` được) |
 | POST | `/api/cvs/{id}/versions` | `{base_version, profile}` | `CvVersion` (bản mới). `base_version` cũ hơn bản mới nhất → 409 `version_conflict` |
-| POST | `/api/cvs/{id}/reanalyze` | | `AnalysisProgress` (202) |
+| POST | `/api/cvs/{id}/reanalyze` | `{mode?}` (mặc định: chế độ của lần phân tích trước) | `AnalysisProgress` (202) |
 | GET | `/api/cvs/{id}/file` | | File gốc |
 | GET | `/api/cvs/{id}/sessions` | | `SessionSummary[]` (kèm bản CV đã dùng trong `cv.version`) |
 
@@ -177,11 +179,13 @@ interface AccountData {
 Như CV, khác ở:
 | Method | Path | Body | Trả về |
 |---|---|---|---|
-| POST | `/api/jds` | JSON `{name, text}` (dán) **hoặc** multipart `name`, `file` (PDF/DOCX ≤ 5 MB) | `JdSummary` (201) |
+| POST | `/api/jds` | JSON `{name, text, mode?}` (dán) **hoặc** multipart `name`, `file` (PDF/DOCX ≤ 5 MB), `mode?` | `JdSummary` (201) |
 | GET | `/api/jds/{id}` | | `JdDetail` |
 | POST | `/api/jds/{id}/versions` | `{base_version, requirements}` | `JdVersion` |
 
 Tải JD bằng file: server trích chữ **ngay trong request** (JD ngắn nên nhanh), lưu vào `text` rồi phân tích như JD dán. Lỗi trả ngay: 415 `unsupported_file`, 413 `file_too_large`, 422 `no_text_in_file`, 422 `validation_error` với `fields.file` khi chữ trích được dài quá giới hạn JD. Không lưu file gốc (chỉ cần `text`), nên không có `/file`.
+
+**Chế độ trích xuất** (`mode`, `extraction.md` mục 8): JD chỉ nhận `standard` hoặc `precise`; gửi `layout` cho JD → 422 `validation_error` với `fields.mode`. `mode` không hợp lệ (cả CV và JD) → 422 `validation_error`.
 
 ### Phiên
 | Method | Path | Body | Trả về |

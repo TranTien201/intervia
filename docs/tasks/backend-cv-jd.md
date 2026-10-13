@@ -410,8 +410,8 @@ class JdExtraction(BaseModel):
 
 **File tạo/sửa:** `backend/app/api/cvs.py` (mới; đăng ký router trong `app/main.py`); `backend/app/domain/files.py` (mới: kiểm tra loại file); `uv add python-multipart`; `backend/tests/test_cvs_api.py` (mới).
 
-**`POST /api/cvs`** (multipart: `file`, `name`):
-1. `name`: bỏ khoảng trắng đầu cuối, 1–120 ký tự. Sai → 422 `validation_error`, `fields.name`.
+**`POST /api/cvs`** (multipart: `file`, `name`, `mode?`):
+1. `name`: bỏ khoảng trắng đầu cuối, 1–120 ký tự. Sai → 422 `validation_error`, `fields.name`. `mode`: `standard` (mặc định) / `layout` / `precise`, sai → 422 `fields.mode`; lưu vào `analysis.mode` để BE-4.7 dùng.
 2. Đọc file theo khối 1 MB, cộng dồn kích thước. **Vượt 5 MB thì dừng ngay** → 413 `file_too_large` (không đọc hết file lớn vào RAM).
 3. Xác định loại file **theo nội dung, không theo đuôi hay `Content-Type` trình duyệt gửi**: PDF bắt đầu bằng `%PDF-`; DOCX là file zip (`PK\x03\x04`) có `word/document.xml`. Còn lại (kể cả `.doc` cũ, ảnh, zip khác) → 415 `unsupported_file`. File rỗng → 415.
 4. `file_name`: chỉ lấy tên (bỏ đường dẫn), tối đa 255 ký tự.
@@ -445,6 +445,7 @@ class JdExtraction(BaseModel):
 **`POST /api/jds`:** cùng một đường dẫn nhận hai kiểu body (`api.md`), nên route đọc `Content-Type`: `application/json` → `{name, text}`; `multipart/form-data` → làm ở 4.6, **tới lúc đó trả 415 `unsupported_file`**.
 - `name`: 1–120 ký tự → sai thì 422 `fields.name`.
 - `text`: đổi `\r\n` thành `\n`, bỏ khoảng trắng đầu cuối; 1–20 000 ký tự → sai thì 422 `fields.text`.
+- `mode`: `standard` (mặc định) / `precise`; `layout` hoặc giá trị khác → 422 `fields.mode`. Lưu vào `analysis.mode`.
 - Tạo `jds` với `company: null`, `position: null`, `requirement_count: 0`, `analysis.status = pending`, `step = receive`. Trả **201** `JdSummary`.
 
 **`GET /api/jds/{id}`** → `JdDetail` (có `text`). Danh sách, đổi tên giống CV.
@@ -524,6 +525,15 @@ Hàm repository lấy CV cho bước xóa phải lấy được cả bản ghi `
 **Mục tiêu.** Domain gọi trích xuất qua một interface, không biết LlamaCloud. Sau này đổi sang LLM khác chỉ cần thêm adapter. Test chạy bằng adapter giả, không tốn tiền.
 
 **Làm:** interface; adapter LlamaCloud; adapter giả; cấu hình; thử lại khi lỗi; ghi `llm_calls`.
+
+**Cập nhật sau spike BE-4.3 (2026-10-13): chế độ trích xuất.** Người dùng chọn `standard` / `layout` / `precise` (`extraction.md` mục 8, `api.md`). Phần dưới (interface, cấu hình) viết trước spike; khi làm, sửa theo các điểm sau:
+- **Bộ đọc chữ tại chỗ** `backend/app/documents.py` (mới, không thuộc provider vì không gọi dịch vụ ngoài): `read_text(content, filename) -> DocumentText` (`text`, `page_count`, `looks_readable: bool`). PDF bằng `pypdf` (`extraction_mode="layout"`), DOCX bằng thư viện đọc DOCX; gộp khoảng trắng. `looks_readable = False` khi chữ quá ít so với số trang hoặc nhiều ký tự lạ (ngưỡng chốt sau khi chạy thử CV scan / lỗi font). Dùng cho cả CV (`standard`) và JD tải bằng file (BE-4.6, thay cho `extractor.read_text`). Chuyển `pypdf` từ dev dependency sang dependency chính.
+- **Interface** nhận đầu vào là chữ **hoặc** file, và một mức chất lượng không gắn với tên gói của hãng: `extract(*, text: str | None, content: bytes | None, filename: str, quality: Literal["economy", "high"], schema, system_prompt)`. Adapter đổi `quality` ra gói của mình theo cấu hình. Bỏ `read_text` khỏi interface.
+- **Domain** (BE-4.5/4.6) đổi `mode` ra lời gọi: `standard` → `read_text`; đọc được thì gửi chữ (`economy`), không thì gửi file (`economy`) và ghi `fallback = True`. `layout` → gửi file (`economy`). `precise` → gửi file với CV, chữ với JD (`high`).
+- **Cấu hình:** thay `llama_extract_tier` bằng `llama_tier_economy = "cost_effective"`, `llama_tier_high = "agentic"` (gói extract, parse dùng cùng gói); `extract_max_pages = 6` (`max_pages`).
+- **Lưu kèm mỗi lần phân tích** (bản ghi phân tích và `llm_calls`): `mode` người dùng chọn, `method` (`text` / `file`), gói, `fallback`, credit. `cv_versions` / `jd_versions` có trường `mode` (API trả trong `CvVersion.mode`).
+- **Chữ dùng để kiểm tra trích dẫn** là chữ đã gửi đi (đường `text`), hoặc chữ lấy từ parse job (đường `file`, lấy trước khi xóa job). Không dùng `citation` của hãng (spike câu 7).
+- **Không trích lại file trùng:** lưu hash nội dung; cùng file + cùng `mode` + cùng version prompt/schema thì dùng lại kết quả cũ (không tốn credit).
 
 **File tạo/sửa:**
 - `backend/app/providers/extract/__init__.py`, `base.py`, `llamacloud.py`, `fake.py` (mới)
@@ -682,7 +692,7 @@ def build_requirements(extraction: JdExtraction, jd_text: str) -> tuple[JdRequir
 
 **Tải JD bằng file** (`POST /api/jds`, multipart `name`, `file`):
 1. Kiểm tra `name`, kích thước, loại file y như CV (2.2): 413 / 415 / 422.
-2. `text = await extractor.read_text(...)` **ngay trong request** (JD ngắn), giới hạn 60 giây.
+2. `text = read_text(...)` (bộ đọc tại chỗ `app/documents.py`, BE-4.4) **ngay trong request**; `looks_readable = False` → 422 `no_text_in_file`.
    - `ExtractorError("no_text")` hoặc text rỗng sau khi bỏ khoảng trắng → 422 `no_text_in_file`.
    - Hết giờ / lỗi provider → 502 `llm_error`.
 3. Chuẩn hóa text như JD dán (2.3); dài quá 20 000 ký tự → 422 `validation_error`, `fields.file` ("JD dài quá 20 000 ký tự…").
@@ -741,7 +751,7 @@ Lỗi không lường trước: log `exception` (không kèm nội dung CV) và 
 - Trạng thái từng bước suy từ `analysis.step` + `status`: các bước trước bước hiện tại `done`; bước hiện tại `running` (hoặc `failed` khi `status = failed`; `pending` khi còn chờ semaphore); các bước sau `pending`; `status = done` → tất cả `done`.
 - `error` khi `failed`, ngược lại `null`.
 
-**`POST /api/cvs/{id}/reanalyze`** → **202** `AnalysisProgress`: đang `pending`/`running` → trả tiến trình hiện tại, **không chạy thêm job**; còn lại → `start_cv` mới. JD tương tự. Bản phân tích lại tạo phiên bản mới (`reanalysis`); các bản người dùng đã sửa vẫn còn trong lịch sử.
+**`POST /api/cvs/{id}/reanalyze`** (body `{mode?}`, mặc định chế độ của lần phân tích trước; `POST /api/cvs` và `POST /api/jds` cũng nhận `mode`, xem `api.md`) → **202** `AnalysisProgress`: đang `pending`/`running` → trả tiến trình hiện tại, **không chạy thêm job**; còn lại → `start_cv` mới. JD tương tự. Bản phân tích lại tạo phiên bản mới (`reanalysis`); các bản người dùng đã sửa vẫn còn trong lịch sử.
 
 **Gắn vào tạo mới:** `POST /api/cvs`, `POST /api/jds` gọi `start_*` sau khi lưu xong, rồi trả 201 ngay (không chờ phân tích).
 

@@ -134,6 +134,10 @@ Mỗi bước có đường dẫn riêng và dữ liệu nằm trong DB, nên t�
 
 - **Lần đầu (thư viện trống):** chỉ hiện ô tải CV mới và ô thêm JD mới, không có lựa chọn "có sẵn".
 - **JD mới:** dán nội dung hoặc tải file PDF/DOCX (≤ 5 MB). Đổi qua lại giữa hai cách không mất phần đã nhập. Server trích chữ từ file ngay khi tải lên; file scan không có chữ thì báo lỗi ngay dưới ô file. Chữ trích được xem lại ở trang Chi tiết JD.
+- **Tùy chọn phân tích** (dưới ô CV mới và ô JD mới, thu gọn mặc định, chỉ hiện khi tải/thêm mới): chọn chế độ trích xuất (`extraction.md` mục 8). Mặc định **Tiêu chuẩn**; mỗi lựa chọn có một dòng mô tả ngắn và nhãn chi phí, thời gian tương đối:
+  - **Tiêu chuẩn** · "Nhanh, tiết kiệm. Phù hợp hầu hết CV." · `~30 giây`
+  - **Đọc bố cục** · "Cho CV scan, CV 2 cột hoặc nhiều bảng." · `~1 phút · tốn hơn` (không có ở JD)
+  - **Chính xác cao** · "Đọc kỹ nhất, chậm và tốn nhất. Dùng khi kết quả chưa tốt." · `~2 phút · tốn gấp 4`
 - **CV/JD mới** được lưu vào thư viện với tên người dùng đặt (gợi ý sẵn tên từ tên file hoặc dòng đầu của JD dán).
 - **Vị trí:** chọn từ danh sách cố định (vì rubric MVP-2 theo role) + "Khác".
 - **Kiểm tra trước khi gửi:** đúng định dạng file, kích thước, JD không rỗng và không quá dài. Báo lỗi ngay dưới ô sai.
@@ -327,6 +331,7 @@ Mỗi bước có đường dẫn riêng và dữ liệu nằm trong DB, nên t�
 - Hai tab CV và JD, cùng bố cục danh sách. Bấm vào một dòng mở trang chi tiết.
 - Tab JD: tên, công ty/vị trí (nếu trích được), số yêu cầu, số phiên đã dùng.
 - **Trống:** "Chưa có CV nào. Thêm CV để dùng lại cho nhiều phiên luyện tập." + nút tải lên.
+- **Tải CV / thêm JD từ thư viện:** có "Tùy chọn phân tích" như trang 2.
 - **Xóa CV/JD:** hộp xác nhận liệt kê các phiên đang dùng nó: "CV này được dùng trong 4 phiên. Xóa CV sẽ xóa luôn 4 phiên đó, gồm transcript và file ghi âm." Hai lựa chọn: "Xóa CV và 4 phiên" hoặc "Giữ lại". Không có lựa chọn xóa CV mà giữ phiên, vì hồ sơ trích từ CV trong các phiên cũ vẫn là PII.
 
 ### Trang 8. Chi tiết CV `/library/cv/:id`
@@ -355,12 +360,12 @@ Mỗi bước có đường dẫn riêng và dữ liệu nằm trong DB, nên t�
 
 - Hồ sơ dùng cùng thành phần với trang 3 (tag kỹ năng, thẻ claim kèm câu gốc, cảnh báo khi không tìm thấy câu gốc).
 - **Mỗi lần lưu tạo phiên bản mới.** Menu "lịch sử" cho xem phiên bản cũ (chỉ xem). Các phiên cũ vẫn trỏ tới phiên bản chúng đã dùng.
-- **"Phân tích lại"** (trong ⋮): chạy lại A1 trên file gốc, tạo phiên bản mới; dùng khi prompt được cải tiến hoặc kết quả cũ sai nhiều.
+- **"Phân tích lại"** (trong ⋮): mở hộp thoại nhỏ chọn chế độ trích xuất (như "Tùy chọn phân tích" ở trang 2, chọn sẵn chế độ của lần trước, kèm dòng gợi ý "Kết quả thiếu hoặc sai? Thử Đọc bố cục hoặc Chính xác cao"), rồi chạy lại A1 trên file gốc, tạo phiên bản mới. Lịch sử phiên bản ghi chế độ đã dùng của từng bản.
 - **"Đã dùng trong"**: danh sách phiên kèm phiên bản CV, bấm để mở trang 6.
 
 ### Trang 9. Chi tiết JD `/library/jd/:id`
 
-Bố cục giống trang 8: cột trái là văn bản JD gốc (thu gọn được) và danh sách yêu cầu đã trích (sửa được, đổi Bắt buộc/Nên có); cột phải là các phiên đã dùng JD này. Cũng lưu theo phiên bản.
+Bố cục giống trang 8: cột trái là văn bản JD gốc (thu gọn được) và danh sách yêu cầu đã trích (sửa được, đổi Bắt buộc/Nên có); cột phải là các phiên đã dùng JD này. Cũng lưu theo phiên bản. "Phân tích lại" như trang 8, nhưng chỉ có Tiêu chuẩn và Chính xác cao.
 
 ### Trang 10. Tài khoản `/account` (khi bật đăng nhập)
 

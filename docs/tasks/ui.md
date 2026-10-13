@@ -269,6 +269,17 @@ Lý do: `docs/design/extraction.md` mục 5. Type mới: `docs/design/api.md`.
 - [ ] Sửa các test liên quan (`profile-editor`, `requirements-editor`, `session-match`, `mock-api`).
 - **Xong khi:** `npm test`, `npm run typecheck`, `npm run lint` qua; `grep -r "catalog_id\|unmapped\|MatchResult" web/src` không còn kết quả.
 
+### UI-5.6 Chọn chế độ trích xuất (thêm 2026-10-13)
+Thiết kế: `docs/design/ui-pages.md` trang 2 ("Tùy chọn phân tích"), trang 7, 8, 9 ("Phân tích lại"); `docs/design/extraction.md` mục 8; type ở `docs/design/api.md`.
+- [ ] `src/api/types.ts`: thêm `ExtractionMode`; `CvVersion.mode`, `JdVersion.mode`. Hàm API tải CV / thêm JD / phân tích lại nhận `mode`.
+- [ ] Thành phần `ExtractionModePicker` (dùng chung): 3 lựa chọn dạng radio có mô tả và nhãn chi phí, thời gian; prop `kind: "cv" | "jd"` (JD ẩn "Đọc bố cục"). Nhãn tiếng Việt để trong một hằng, không rải trong trang.
+- [ ] Trang 2 và nút tải ở Thư viện: mục "Tùy chọn phân tích" thu gọn dưới ô CV mới / JD mới, mặc định Tiêu chuẩn; gửi `mode` cùng form.
+- [ ] "Phân tích lại" (trang 8, 9): hộp thoại chọn chế độ, chọn sẵn chế độ của bản mới nhất, có dòng gợi ý khi kết quả chưa tốt.
+- [ ] Lịch sử phiên bản: hiện chế độ của từng bản (bản người dùng sửa thì không có).
+- [ ] Mock: nhận và lưu `mode`; JD nhận `layout` → 422 `fields.mode`; thời gian giả lập theo chế độ (vd `precise` lâu hơn) để thấy tiến trình.
+- [ ] Test: picker (JD không có "Đọc bố cục"), gửi đúng `mode` khi tạo CV/JD và khi phân tích lại.
+- **Xong khi:** `npm test`, `npm run typecheck`, `npm run lint` qua.
+
 ## UI-6. Phỏng vấn chế độ Text `/sessions/:id/interview` [5]
 
 Làm chế độ Text trọn vẹn trước; voice thêm ở `UI-9` trên cùng màn hình này.

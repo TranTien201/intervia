@@ -65,6 +65,7 @@ Cấu trúc CV IT phổ biến (ITviec, JSON Resume): thông tin cá nhân, gi�
 
 - **Lấy từ phần yêu cầu** ("Yêu cầu", "Requirements", "Nice to have"…). Phần mô tả công việc đi vào `responsibilities`, không tự sinh yêu cầu (tránh suy gượng như "hệ thống thanh toán" → Xử lý lỗi).
 - **Tách** một gạch đầu dòng có nhiều kỹ năng độc lập: "Thành thạo thiết kế API, PostgreSQL" → 2 yêu cầu, cùng trích dẫn. Không tách khi các ý thuộc cùng một việc ("PostgreSQL, tối ưu truy vấn" là một yêu cầu).
+- **Không tách danh sách lựa chọn** (chỉ cần một trong): "một trong Kafka, RabbitMQ hoặc NATS", "at least one of… such as SLAM, VIO, SfM" là **một** yêu cầu, vì từng mục riêng lẻ không bắt buộc. Một gạch có thể vừa tách vừa giữ: "Kafka, RabbitMQ hoặc NATS; hiểu Docker" → 2 yêu cầu. Thêm từ `jd_extract_v2` / schema `jd-2` (spike BE-4.3: prompt v1 tách thành từng mục bắt buộc, 13 gạch ra 56 yêu cầu).
 - **`name`** chỉ rút gọn chữ trong JD, không đổi sang từ khác, không gom nhiều yêu cầu thành một.
 - **`kind = preferred`** khi có dấu hiệu "là lợi thế", "ưu tiên", "nice to have", "a plus", "bonus". Còn lại là `required`.
 - **`importance`:** 3 = nhấn mạnh ("thành thạo", "must", "strong", "sâu"); 2 = liệt kê bình thường; 1 = phụ hoặc `preferred`.
@@ -132,6 +133,21 @@ Dữ liệu mẫu (`web/src/mocks/seed.ts`) có vài chỗ đi ngược quy tắ
 
 ## 7. Còn mở
 
-- **Gói LlamaExtract:** `cite_sources` chỉ có ở gói agentic/MULTIMODAL trở lên. Đo chi phí và chất lượng khi chạy thử.
-- **Giới hạn schema của LlamaExtract** (tài liệu "Schema Design and Restrictions", kiểm tra 2026-10-13): root phải là `object`; lồng tối đa 7 tầng (khuyên 3–4); tối đa 5.000 thuộc tính, 120.000 ký tự chuỗi, 150.000 ký tự JSON; chỉ đọc tên khóa, `type`, `description` (không hỗ trợ `default`, định dạng); thiếu `required` thì mọi trường thành bắt buộc; `anyOf` + `null` dùng cho trường nullable; `$ref` được bung ra. Schema hiện tại (`cv-1`, `jd-1`) lồng 5 tầng (`experiences[].highlights[]`), khoảng 10.000 ký tự: **không có giới hạn ảnh hưởng**, giữ nguyên cấu trúc mục 2–3. **Chưa xác nhận:** tài liệu không nói rõ `enum` (từ `Literal`) có được tuân thủ không; kiểm tra ở BE-4.3, nếu không thì code chuẩn hóa nhãn sau khi nhận kết quả.
+- **Gói LlamaExtract:** chạy thử 2026-10-13 (`docs/spikes/llamaextract.md`): gói `cost_effective` vẫn có `cite_sources`. Đề xuất: backend tự đọc chữ (PDF/DOCX) rồi gửi `.txt` với gói `cost_effective` (không có phí parse; CV 4 trang 25 credit thay vì 100 của `agentic`, chất lượng tương đương trên bộ thử), dự phòng gửi file gốc khi là CV scan hoặc lỗi font. Chốt sau khi chạy đủ bộ thử.
+- **Giới hạn schema của LlamaExtract** (tài liệu "Schema Design and Restrictions", kiểm tra 2026-10-13): root phải là `object`; lồng tối đa 7 tầng (khuyên 3–4); tối đa 5.000 thuộc tính, 120.000 ký tự chuỗi, 150.000 ký tự JSON; chỉ đọc tên khóa, `type`, `description` (không hỗ trợ `default`, định dạng); thiếu `required` thì mọi trường thành bắt buộc; `anyOf` + `null` dùng cho trường nullable; `$ref` được bung ra. Schema hiện tại (`cv-1`, `jd-1`) lồng 5 tầng (`experiences[].highlights[]`), khoảng 10.000 ký tự: **không có giới hạn ảnh hưởng**, giữ nguyên cấu trúc mục 2–3. `enum` (từ `Literal`): server chấp nhận và kết quả tuân thủ (spike BE-4.3).
 - **CV dài:** giới hạn số `highlights` mỗi kinh nghiệm nếu kết quả quá dài (đo khi chạy thử).
+
+## 8. Chế độ trích xuất (người dùng chọn)
+
+Chốt 2026-10-13, dựa trên số đo ở `docs/spikes/llamaextract.md`. Người dùng chọn chế độ khi tải CV / thêm JD (mục "Tùy chọn phân tích" thu gọn, mặc định **Tiêu chuẩn**) và khi bấm "Phân tích lại". Không giới hạn chế độ nào; giao diện ghi chi phí và thời gian tương đối để người dùng tự cân nhắc.
+
+| Chế độ (`mode`) | Tên trên giao diện | Cách chạy | CV 4 trang (đo được) | Dùng cho |
+|---|---|---|---|---|
+| `standard` | **Tiêu chuẩn** (mặc định) | Backend tự đọc chữ (PDF/DOCX), gửi `.txt`, gói extract `cost_effective`. Không đọc được chữ hoặc chữ lỗi (CV scan, lỗi font) thì **tự chuyển** sang cách của `layout` | ~25 credit, ~30 s | CV và JD |
+| `layout` | **Đọc bố cục** | Gửi file gốc; LlamaCloud parse + extract, gói `cost_effective` | ~32 credit, ~70 s | CV scan, 2 cột, nhiều bảng. **Chỉ CV** (JD luôn là chữ, xem `api.md`) |
+| `precise` | **Chính xác cao** | Gửi file gốc (CV) hoặc chữ (JD), parse + extract gói `agentic` | ~100 credit, ~2 phút | Khi hai chế độ trên ra kết quả chưa tốt |
+
+- Gói cụ thể của từng chế độ đặt bằng biến môi trường (`docs/tasks/backend-cv-jd.md` BE-4.4), đổi không cần sửa code.
+- Mỗi bản phân tích lưu chế độ người dùng chọn **và** cách đã chạy thật (`text` / `file`, gói, có tự chuyển hay không), để so sánh chất lượng giữa các chế độ và chạy lại được.
+- Chế độ chỉ đổi **cách đọc tài liệu và gói**; schema, prompt và bước chuẩn hóa sau đó giống nhau, nên kết quả các chế độ so sánh được với nhau.
+- **Chưa chốt:** cách nhận biết "chữ đọc được bị lỗi" (tỷ lệ ký tự lạ, số chữ trên trang); chốt sau khi chạy thử CV scan, CV 2 cột, CV tiếng Việt.
