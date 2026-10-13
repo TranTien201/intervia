@@ -5,7 +5,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.api import auth, health, roles
+from app.api import auth, cvs, health, roles
 from app.api.errors import register_error_handlers
 from app.config import Settings, get_settings
 from app.db.mongo import create_client, ensure_indexes
@@ -47,6 +47,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.include_router(health.router, prefix="/api")
     app.include_router(auth.router, prefix="/api")
     app.include_router(roles.router, prefix="/api")
+    app.include_router(cvs.router, prefix="/api")
     return app
 
 

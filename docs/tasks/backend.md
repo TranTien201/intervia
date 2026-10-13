@@ -23,7 +23,8 @@
 **Chi tiết từng task (việc, file, quy tắc, test, output): `backend-cv-jd.md`.** Thứ tự làm cả nhóm CV/JD ở mục 1 của file đó. BE-3 không chặn nhóm này (A1, A2 dùng LlamaExtract).
 - [x] BE-2.1. Schema và collection CV/JD (`cvs`, `cv_versions`, `jds`, `jd_versions`, GridFS `cv_files`)
   - **Đã xong (2026-10-13):** schema `app/schemas/analysis.py` (dùng chung: `AnalysisState`, `VersionInfo`, `AnalysisProgress`, giới hạn chuỗi 1 000 ký tự), `cv.py`, `jd.py` (type API + bản ghi DB `CvRecord`, `CvVersionRecord`, `JdRecord`, `JdVersionRecord`); repository `app/db/cvs.py`, `jds.py` (kèm các bước xóa cho BE-2.5); `utcnow()` trong `app/db/mongo.py` (cắt về ms). `analysis` có thêm `mode` (chế độ trích xuất). File GridFS dùng UUID chuỗi làm `_id`. Test: `tests/test_cvs_repo.py`, `test_jds_repo.py`.
-- [ ] BE-2.2. API tải lên và quản lý CV
+- [x] BE-2.2. API tải lên và quản lý CV
+  - **Đã xong (2026-10-13):** `app/api/cvs.py`: `POST /api/cvs` (multipart `file`, `name`, `mode?`; đọc từng khối 1 MB, > 5 MB → 413; loại file theo nội dung, sai → 415), `GET /api/cvs`, `GET/PATCH /api/cvs/{id}`, `GET /api/cvs/{id}/file` (stream GridFS, `filename*=UTF-8''…`, `nosniff`). `app/domain/files.py` (nhận dạng PDF/DOCX, làm sạch tên file), `app/domain/library.py` (kiểm tra tên, `mode`). Thêm `python-multipart`. Lỗi 422 gom mọi trường sai (`name`, `mode`, `file`) vào một lần trả. Fixture `client` dùng chung trong `tests/conftest.py`. Test: `tests/test_cvs_api.py`. Đã thử tải một CV PDF thật qua server chạy thật.
 - [ ] BE-2.3. API thêm và quản lý JD (dán text)
 - [ ] BE-2.4. Phiên bản hồ sơ và yêu cầu
 - [ ] BE-2.5. Xóa CV và JD

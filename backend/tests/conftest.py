@@ -1,8 +1,10 @@
+import httpx
 import pytest
 from pymongo import AsyncMongoClient
 
 from app.config import Settings
 from app.db.mongo import create_client
+from app.main import create_app
 
 TEST_DB = "intervia_test"
 
@@ -32,3 +34,13 @@ async def db(mongo_client: AsyncMongoClient):
     await mongo_client.drop_database(TEST_DB)
     yield mongo_client[TEST_DB]
     await mongo_client.drop_database(TEST_DB)
+
+
+@pytest.fixture
+async def client(db, settings: Settings):
+    """HTTP client against the real app (startup included), login off."""
+    app = create_app(settings)
+    async with app.router.lifespan_context(app):
+        transport = httpx.ASGITransport(app=app)
+        async with httpx.AsyncClient(transport=transport, base_url="http://test") as c:
+            yield c
