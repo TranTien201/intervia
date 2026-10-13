@@ -1,7 +1,7 @@
 """CV library endpoints, contract in docs/design/api.md section "CV"."""
 
 from collections.abc import AsyncIterator
-from typing import Annotated
+from typing import Annotated, Any
 from urllib.parse import quote
 
 from fastapi import APIRouter, Depends, File, Form, UploadFile
@@ -13,8 +13,9 @@ from pymongo.asynchronous.database import AsyncDatabase
 from app.api.deps import current_user, get_db
 from app.api.errors import AppError
 from app.db import cvs
-from app.domain import files, library
-from app.schemas.cv import CvRecord, CvSummary
+from app.domain import files, library, versions
+from app.schemas.analysis import VersionInfo
+from app.schemas.cv import CandidateProfile, CvRecord, CvSummary, CvVersion
 from app.schemas.user import User
 
 router = APIRouter(tags=["cvs"])
@@ -27,6 +28,11 @@ _CHUNK = 1024 * 1024
 
 class RenameBody(BaseModel):
     name: str
+
+
+class NewVersionBody(BaseModel):
+    base_version: int
+    profile: CandidateProfile
 
 
 async def _get_cv(db: AsyncDatabase, user: User, cv_id: str) -> CvRecord:
@@ -125,3 +131,34 @@ async def download_cv_file(cv_id: str, user: CurrentUser, db: Db) -> StreamingRe
         "X-Content-Type-Options": "nosniff",
     }
     return StreamingResponse(_iter_file(stream), media_type=cv.content_type, headers=headers)
+
+
+@router.get("/cvs/{cv_id}/versions")
+async def list_cv_versions(cv_id: str, user: CurrentUser, db: Db) -> list[VersionInfo]:
+    cv = await _get_cv(db, user, cv_id)
+    return await cvs.list_versions(db, user.id, cv.id)
+
+
+@router.get("/cvs/{cv_id}/versions/{v}")
+async def get_cv_version(cv_id: str, v: str, user: CurrentUser, db: Db) -> CvVersion:
+    cv = await _get_cv(db, user, cv_id)
+    number = versions.parse_version(v)
+    if number == "latest":
+        number = await cvs.latest_version(db, cv.id)
+    record = await cvs.get_version(db, user.id, cv.id, number) if number else None
+    if record is None:
+        raise AppError("not_found", 404, "Không tìm thấy phiên bản hồ sơ.")
+    return record.to_api()
+
+
+@router.post("/cvs/{cv_id}/versions", status_code=201)
+async def save_cv_version(cv_id: str, body: NewVersionBody, user: CurrentUser, db: Db) -> CvVersion:
+    cv = await _get_cv(db, user, cv_id)
+    record = await versions.save_cv_version(db, user.id, cv.id, body.base_version, body.profile)
+    return record.to_api()
+
+
+@router.get("/cvs/{cv_id}/sessions")
+async def list_cv_sessions(cv_id: str, user: CurrentUser, db: Db) -> list[Any]:
+    await _get_cv(db, user, cv_id)
+    return []  # sessions arrive with BE-6

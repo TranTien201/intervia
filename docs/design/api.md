@@ -28,6 +28,7 @@
 | `file_too_large` | 413 | File CV/JD > 5 MB |
 | `unsupported_file` | 415 | Không phải PDF/DOCX |
 | `no_text_in_file` | 422 | File scan, không trích được chữ (CV: báo trong `AnalysisProgress.error`; JD: trả ngay khi tải lên) |
+| `version_conflict` | 409 | Lưu hồ sơ / yêu cầu JD từ một phiên bản không còn là bản mới nhất (đã được sửa ở tab khác); web tải lại bản mới nhất |
 | `session_locked` | 409 | Sửa đầu vào của phiên đã bắt đầu |
 | `session_not_active` | 409 | Gửi câu trả lời cho phiên chưa bắt đầu / đã kết thúc |
 | `turn_in_progress` | 409 | Gửi lượt mới khi AI chưa trả lời xong lượt trước |
@@ -182,6 +183,8 @@ Như CV, khác ở:
 | POST | `/api/jds` | JSON `{name, text, mode?}` (dán) **hoặc** multipart `name`, `file` (PDF/DOCX ≤ 5 MB), `mode?` | `JdSummary` (201) |
 | GET | `/api/jds/{id}` | | `JdDetail` |
 | POST | `/api/jds/{id}/versions` | `{base_version, requirements}` | `JdVersion` |
+
+**Lưu phiên bản mới (CV và JD):** server không tin `quote_status` / `source_quote` web gửi. Claim chỉ giữ `found` / `not_found` khi `source_quote` giống hệt một claim của bản `base_version`; còn lại thành `user_added`, `source_quote: null`. Yêu cầu JD cũng vậy: `source_quote` không có trong bản `base_version` thì thành `null`. `id` trùng trong một danh sách, `Requirement.name` rỗng hoặc dài hơn 120 ký tự → 422 `validation_error`.
 
 Tải JD bằng file: server trích chữ **ngay trong request** (JD ngắn nên nhanh), lưu vào `text` rồi phân tích như JD dán. Lỗi trả ngay: 415 `unsupported_file`, 413 `file_too_large`, 422 `no_text_in_file`, 422 `validation_error` với `fields.file` khi chữ trích được dài quá giới hạn JD. Không lưu file gốc (chỉ cần `text`), nên không có `/file`.
 

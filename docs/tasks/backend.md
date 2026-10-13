@@ -27,7 +27,8 @@
   - **Đã xong (2026-10-13):** `app/api/cvs.py`: `POST /api/cvs` (multipart `file`, `name`, `mode?`; đọc từng khối 1 MB, > 5 MB → 413; loại file theo nội dung, sai → 415), `GET /api/cvs`, `GET/PATCH /api/cvs/{id}`, `GET /api/cvs/{id}/file` (stream GridFS, `filename*=UTF-8''…`, `nosniff`). `app/domain/files.py` (nhận dạng PDF/DOCX, làm sạch tên file), `app/domain/library.py` (kiểm tra tên, `mode`). Thêm `python-multipart`. Lỗi 422 gom mọi trường sai (`name`, `mode`, `file`) vào một lần trả. Fixture `client` dùng chung trong `tests/conftest.py`. Test: `tests/test_cvs_api.py`. Đã thử tải một CV PDF thật qua server chạy thật.
 - [x] BE-2.3. API thêm và quản lý JD (dán text)
   - **Đã xong (2026-10-13):** `app/api/jds.py`: `POST /api/jds` (đọc `Content-Type`: JSON `{name, text, mode?}`; multipart tạm trả 415 tới BE-4.6; body tự parse nên Swagger lấy schema từ `openapi_extra`), `GET /api/jds`, `GET /api/jds/{id}` (`JdDetail`), `PATCH /api/jds/{id}`. Text: `\r\n` → `\n`, bỏ khoảng trắng đầu cuối, 1–20 000 ký tự **sau khi** chuẩn hóa. `mode` của JD chỉ nhận `standard` / `precise`. Test: `tests/test_jds_api.py`.
-- [ ] BE-2.4. Phiên bản hồ sơ và yêu cầu
+- [x] BE-2.4. Phiên bản hồ sơ và yêu cầu
+  - **Đã xong (2026-10-13):** `app/domain/versions.py` (`save_cv_version`, `save_jd_version`, kiểm tra id trùng, quy tắc `quote_status`); route trong `app/api/cvs.py`, `jds.py`: `GET …/versions`, `GET …/versions/{v}` (`v` ≥ 1 hoặc `latest`, sai → 404), `POST …/versions` (201; `base_version` khác bản mới nhất hoặc chưa có bản nào → 409 `version_conflict`; chạy song song thì unique index quyết định), `GET …/sessions` (tạm `[]`). Thêm ngoài đặc tả: `source_quote` của yêu cầu JD cũng chỉ giữ khi có trong bản gốc (giống claim). `api.md`: thêm `version_conflict` vào bảng mã lỗi và quy tắc lưu phiên bản. Test: `tests/test_versions_api.py`.
 - [ ] BE-2.5. Xóa CV và JD
 
 ## BE-3. Lớp provider LLM (AI)

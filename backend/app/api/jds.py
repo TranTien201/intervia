@@ -9,8 +9,9 @@ from pymongo.asynchronous.database import AsyncDatabase
 from app.api.deps import current_user, get_db
 from app.api.errors import AppError
 from app.db import jds
-from app.domain import library
-from app.schemas.jd import JdDetail, JdRecord, JdSummary
+from app.domain import library, versions
+from app.schemas.analysis import VersionInfo
+from app.schemas.jd import JdDetail, JdRecord, JdRequirements, JdSummary, JdVersion
 from app.schemas.user import User
 
 router = APIRouter(tags=["jds"])
@@ -30,6 +31,11 @@ class PasteJdBody(BaseModel):
 
 class RenameBody(BaseModel):
     name: str
+
+
+class NewVersionBody(BaseModel):
+    base_version: int
+    requirements: JdRequirements
 
 
 async def _get_jd(db: AsyncDatabase, user: User, jd_id: str) -> JdRecord:
@@ -106,3 +112,36 @@ async def rename_jd(jd_id: str, body: RenameBody, user: CurrentUser, db: Db) -> 
     if jd is None:
         raise AppError("not_found", 404, "Không tìm thấy JD.")
     return jd.to_summary()
+
+
+@router.get("/jds/{jd_id}/versions")
+async def list_jd_versions(jd_id: str, user: CurrentUser, db: Db) -> list[VersionInfo]:
+    jd = await _get_jd(db, user, jd_id)
+    return await jds.list_versions(db, user.id, jd.id)
+
+
+@router.get("/jds/{jd_id}/versions/{v}")
+async def get_jd_version(jd_id: str, v: str, user: CurrentUser, db: Db) -> JdVersion:
+    jd = await _get_jd(db, user, jd_id)
+    number = versions.parse_version(v)
+    if number == "latest":
+        number = await jds.latest_version(db, jd.id)
+    record = await jds.get_version(db, user.id, jd.id, number) if number else None
+    if record is None:
+        raise AppError("not_found", 404, "Không tìm thấy phiên bản yêu cầu JD.")
+    return record.to_api()
+
+
+@router.post("/jds/{jd_id}/versions", status_code=201)
+async def save_jd_version(jd_id: str, body: NewVersionBody, user: CurrentUser, db: Db) -> JdVersion:
+    jd = await _get_jd(db, user, jd_id)
+    record = await versions.save_jd_version(
+        db, user.id, jd.id, body.base_version, body.requirements
+    )
+    return record.to_api()
+
+
+@router.get("/jds/{jd_id}/sessions")
+async def list_jd_sessions(jd_id: str, user: CurrentUser, db: Db) -> list[Any]:
+    await _get_jd(db, user, jd_id)
+    return []  # sessions arrive with BE-6
