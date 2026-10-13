@@ -10,8 +10,6 @@ import { RequirementsEditor } from './RequirementsEditor'
 const JD_ID = 'jd-abc'
 const latest = () => structuredClone(db.jdRow(JD_ID)!.versions.at(-1)!) as JdVersion
 
-const section = (title: string) =>
-  within(screen.getByRole('heading', { name: title }).closest('section')!)
 const row = (name: string) => within(screen.getByText(name).closest('li')!)
 
 /** Capture what the editor sends to POST /jds/:id/versions. */
@@ -53,8 +51,6 @@ describe('RequirementsEditor', () => {
     )
     expect(kinds['Thiết kế API']).toBe('preferred')
     expect(kinds['Docker, CI/CD']).toBe('required')
-    // Unmapped items are sent back unchanged.
-    expect(sent[0]!.requirements.unmapped).toEqual(v.requirements.unmapped)
   })
 
   it('removes a requirement, and can discard the change', async () => {
@@ -63,26 +59,20 @@ describe('RequirementsEditor', () => {
     const v = latest()
     renderWithClient(<RequirementsEditor jdId={JD_ID} version={v} />)
 
-    await user.click(screen.getByRole('button', { name: 'Xóa Database' }))
-    expect(screen.queryByText('Database')).toBeNull()
+    await user.click(screen.getByRole('button', { name: 'Xóa PostgreSQL' }))
+    expect(screen.queryByText('PostgreSQL')).toBeNull()
     await user.click(screen.getByRole('button', { name: 'Hủy thay đổi' }))
-    expect(screen.getByText('Database')).toBeInTheDocument()
+    expect(screen.getByText('PostgreSQL')).toBeInTheDocument()
 
-    await user.click(screen.getByRole('button', { name: 'Xóa Database' }))
+    await user.click(screen.getByRole('button', { name: 'Xóa PostgreSQL' }))
     await user.click(screen.getByRole('button', { name: `Lưu thành bản ${v.version + 1}` }))
     await waitFor(() => expect(sent).toHaveLength(1))
-    expect(sent[0]!.requirements.requirements.map((r) => r.name)).not.toContain('Database')
+    expect(sent[0]!.requirements.requirements.map((r) => r.name)).not.toContain('PostgreSQL')
   })
 
-  it('lists what the JD analysis could not map', () => {
+  it('lists every requirement as labelled from the JD, with no "Không map được" section', () => {
     renderWithClient(<RequirementsEditor jdId={JD_ID} version={latest()} />)
-    expect(section('Không map được').getByText('3+ năm kinh nghiệm backend')).toBeInTheDocument()
-  })
-
-  it('hides the unmapped section when there is nothing to review', () => {
-    const v = latest()
-    v.requirements.unmapped = []
-    renderWithClient(<RequirementsEditor jdId={JD_ID} version={v} />)
+    expect(row('3+ năm kinh nghiệm backend').getByText('Bắt buộc')).toBeInTheDocument()
     expect(screen.queryByRole('heading', { name: 'Không map được' })).toBeNull()
   })
 

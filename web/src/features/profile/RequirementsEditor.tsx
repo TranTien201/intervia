@@ -78,25 +78,6 @@ export function RequirementsEditor({
         )}
       </Section>
 
-      {draft.unmapped.length > 0 && (
-        <Section title="Không map được">
-          <p className="text-sm text-ink2">
-            Những ý này trong JD không khớp với chủ đề nào trong danh mục, nên buổi phỏng vấn sẽ
-            không hỏi tới.
-          </p>
-          <ul className="grid gap-1">
-            {draft.unmapped.map((u) => (
-              <li key={u.id} className="flex gap-1 text-ink">
-                <span aria-hidden className="text-ink2">
-                  •
-                </span>
-                {u.text}
-              </li>
-            ))}
-          </ul>
-        </Section>
-      )}
-
       {!readOnly && (
         <SaveBar
           dirty={dirty}

@@ -17,7 +17,6 @@ export const qk = {
   jdSessions: (id: string) => ['jds', id, 'sessions'] as const,
   sessions: ['sessions'] as const,
   session: (id: string) => ['sessions', id] as const,
-  match: (id: string) => ['sessions', id, 'match'] as const,
   blueprint: (id: string) => ['sessions', id, 'blueprint'] as const,
   transcript: (id: string) => ['sessions', id, 'transcript'] as const,
   coverage: (id: string) => ['sessions', id, 'coverage'] as const,

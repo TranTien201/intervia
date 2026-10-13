@@ -87,7 +87,7 @@ function useSessionAnalysis(session: SessionSummary) {
           : 'running'
 
   // When a job ends while the page is open: refresh what depends on it
-  // (CV/JD summaries in the library, the session's versions, the match block).
+  // (CV/JD summaries in the library, the session's versions).
   const prev = useRef(status)
   useEffect(() => {
     if (prev.current === 'running' && (status === 'done' || status === 'failed')) {
@@ -95,7 +95,6 @@ function useSessionAnalysis(session: SessionSummary) {
       void qc.invalidateQueries({ queryKey: qk.jds })
       // Drafts move to the first analysed version of the CV/JD.
       void qc.invalidateQueries({ queryKey: qk.session(session.id), exact: true })
-      void qc.invalidateQueries({ queryKey: qk.match(session.id) })
     }
     prev.current = status
   }, [status, qc, session.id])

@@ -10,33 +10,12 @@ import type {
   VersionOrigin,
 } from '@/api/types'
 
-export interface Competency {
-  id: string
-  name: string
-  keywords: string[]
-}
-
 export const ROLES: Role[] = [
   { id: 'backend_engineer', name: 'Backend Engineer' },
   { id: 'ai_engineer', name: 'AI Engineer' },
   { id: 'frontend_engineer', name: 'Frontend Engineer' },
   { id: 'data_engineer', name: 'Data Engineer' },
 ]
-
-export const CATALOG: Competency[] = [
-  { id: 'API_DESIGN', name: 'Thiết kế API', keywords: ['api', 'rest', 'fastapi', 'grpc'] },
-  { id: 'DATABASE', name: 'Database', keywords: ['postgresql', 'sql', 'database', 'mysql'] },
-  { id: 'ERROR_HANDLING', name: 'Xử lý lỗi', keywords: ['retry', 'lỗi', 'timeout'] },
-  { id: 'QUEUES', name: 'Hàng đợi', keywords: ['rabbitmq', 'kafka', 'queue', 'hàng đợi'] },
-  { id: 'CACHING', name: 'Caching', keywords: ['redis', 'cache'] },
-  { id: 'DEVOPS', name: 'Docker, CI/CD', keywords: ['docker', 'ci/cd', 'kubernetes'] },
-  { id: 'COMMUNICATION', name: 'Giao tiếp', keywords: [] },
-  { id: 'LLM_SYSTEMS', name: 'Hệ thống LLM', keywords: ['llm', 'rag', 'prompt'] },
-  { id: 'ML_EVAL', name: 'Đánh giá mô hình', keywords: ['evaluation', 'đánh giá', 'metrics'] },
-  { id: 'PYTHON', name: 'Python', keywords: ['python'] },
-]
-
-export const competencyName = (id: string) => CATALOG.find((c) => c.id === id)?.name ?? id
 
 // ---------- CVs ----------
 export interface SeedCv {
@@ -49,16 +28,15 @@ export interface SeedCv {
 
 const backendProfile = (extraSkill?: string): CandidateProfile => ({
   skills: [
-    { id: 'sk1', name: 'Python', catalog_id: 'PYTHON', years: 4, source_quote: '4 năm Python' },
-    { id: 'sk2', name: 'FastAPI', catalog_id: 'API_DESIGN', years: 2, source_quote: 'FastAPI' },
-    { id: 'sk3', name: 'PostgreSQL', catalog_id: 'DATABASE', years: 3, source_quote: 'PostgreSQL' },
-    { id: 'sk4', name: 'Docker', catalog_id: 'DEVOPS', years: null, source_quote: 'Docker' },
+    { id: 'sk1', name: 'Python', years: 4, source_quote: '4 năm Python' },
+    { id: 'sk2', name: 'FastAPI', years: 2, source_quote: 'FastAPI' },
+    { id: 'sk3', name: 'PostgreSQL', years: 3, source_quote: 'PostgreSQL' },
+    { id: 'sk4', name: 'Docker', years: null, source_quote: 'Docker' },
     ...(extraSkill
       ? [
           {
             id: 'sk5',
             name: extraSkill,
-            catalog_id: 'CACHING',
             years: null,
             source_quote: extraSkill,
           },
@@ -116,10 +94,10 @@ const backendProfile = (extraSkill?: string): CandidateProfile => ({
 
 const aiProfile: CandidateProfile = {
   skills: [
-    { id: 'sk1', name: 'Python', catalog_id: 'PYTHON', years: 5, source_quote: 'Python (5 năm)' },
-    { id: 'sk2', name: 'LLM', catalog_id: 'LLM_SYSTEMS', years: 2, source_quote: 'ứng dụng LLM' },
-    { id: 'sk3', name: 'RAG', catalog_id: 'LLM_SYSTEMS', years: null, source_quote: 'RAG' },
-    { id: 'sk4', name: 'PyTorch', catalog_id: null, years: 3, source_quote: 'PyTorch' },
+    { id: 'sk1', name: 'Python', years: 5, source_quote: 'Python (5 năm)' },
+    { id: 'sk2', name: 'LLM', years: 2, source_quote: 'ứng dụng LLM' },
+    { id: 'sk3', name: 'RAG', years: null, source_quote: 'RAG' },
+    { id: 'sk4', name: 'PyTorch', years: 3, source_quote: 'PyTorch' },
   ],
   experiences: [
     {
@@ -176,16 +154,16 @@ export interface SeedJd {
   requirements: JdRequirements
 }
 
+/** `name` is a short label taken from the JD itself, as A2 extracts it (no fixed topic list). */
 const req = (
   n: number,
-  catalog_id: string,
+  name: string,
   kind: 'required' | 'preferred',
   importance: 1 | 2 | 3,
   quote: string,
 ) => ({
   id: `rq${n}`,
-  catalog_id,
-  name: competencyName(catalog_id),
+  name,
   kind,
   importance,
   source_quote: quote,
@@ -212,13 +190,13 @@ Yêu cầu:
 - Biết Docker, CI/CD là lợi thế.`,
     requirements: {
       requirements: [
-        req(1, 'API_DESIGN', 'required', 3, 'Thành thạo thiết kế API'),
-        req(2, 'DATABASE', 'required', 3, 'PostgreSQL, tối ưu truy vấn'),
-        req(3, 'QUEUES', 'required', 2, 'Có kinh nghiệm với message queue'),
-        req(4, 'ERROR_HANDLING', 'required', 2, 'hệ thống thanh toán'),
-        req(5, 'DEVOPS', 'preferred', 1, 'Biết Docker, CI/CD là lợi thế'),
+        req(1, 'Thiết kế API', 'required', 3, 'Thành thạo thiết kế API'),
+        req(2, 'PostgreSQL', 'required', 3, 'Làm việc với PostgreSQL, tối ưu truy vấn'),
+        req(3, 'Message queue', 'required', 2, 'Có kinh nghiệm với message queue'),
+        req(4, 'Hệ thống thanh toán', 'required', 2, 'REST API cho hệ thống thanh toán'),
+        req(5, 'Docker, CI/CD', 'preferred', 1, 'Biết Docker, CI/CD là lợi thế'),
+        req(6, '3+ năm kinh nghiệm backend', 'required', 1, '3+ năm kinh nghiệm backend'),
       ],
-      unmapped: [{ id: 'um1', text: '3+ năm kinh nghiệm backend' }],
     },
   },
   {
@@ -235,13 +213,12 @@ Yêu cầu:
 - Kỹ năng giao tiếp tốt, trình bày với khách hàng.`,
     requirements: {
       requirements: [
-        req(1, 'LLM_SYSTEMS', 'required', 3, 'Xây dựng ứng dụng LLM (RAG, agent)'),
-        req(2, 'ML_EVAL', 'required', 3, 'pipeline đánh giá chất lượng mô hình'),
-        req(3, 'PYTHON', 'required', 2, 'Python'),
-        req(4, 'DATABASE', 'preferred', 1, 'PostgreSQL'),
-        req(5, 'COMMUNICATION', 'preferred', 1, 'Kỹ năng giao tiếp tốt'),
+        req(1, 'Ứng dụng LLM', 'required', 3, 'Xây dựng ứng dụng LLM (RAG, agent)'),
+        req(2, 'Đánh giá mô hình', 'required', 3, 'pipeline đánh giá chất lượng mô hình'),
+        req(3, 'Python', 'required', 2, 'Python'),
+        req(4, 'PostgreSQL', 'preferred', 1, 'PostgreSQL'),
+        req(5, 'Giao tiếp', 'preferred', 1, 'Kỹ năng giao tiếp tốt'),
       ],
-      unmapped: [],
     },
   },
   {
@@ -257,11 +234,11 @@ Yêu cầu:
 - Mentor các bạn junior.`,
     requirements: {
       requirements: [
-        req(1, 'CACHING', 'required', 3, 'cache (Redis)'),
-        req(2, 'ERROR_HANDLING', 'required', 3, 'idempotency, retry an toàn'),
-        req(3, 'API_DESIGN', 'preferred', 2, 'Thiết kế hệ thống chịu tải cao'),
+        req(1, 'Cache (Redis)', 'required', 3, 'cache (Redis)'),
+        req(2, 'Idempotency, retry', 'required', 3, 'idempotency, retry an toàn'),
+        req(3, 'Hệ thống chịu tải cao', 'preferred', 2, 'Thiết kế hệ thống chịu tải cao'),
+        req(4, 'Mentor junior', 'preferred', 1, 'Mentor các bạn junior'),
       ],
-      unmapped: [{ id: 'um1', text: 'Mentor các bạn junior' }],
     },
   },
 ]
@@ -333,46 +310,64 @@ export const SEED_SESSIONS: SeedSession[] = [
   },
 ]
 
-// Scripted interviewer lines per competency, used by the mock interview loop.
+const RETRY_LINES = [
+  'Khi gọi API thanh toán bị timeout, bạn xử lý retry thế nào để không trừ tiền khách hai lần?',
+  'Bạn phân biệt lỗi nào nên retry, lỗi nào không nên retry ra sao?',
+]
+
+/**
+ * Scripted interviewer lines for the mock interview loop, keyed by a word that may appear in a
+ * competency name (lower case). Stands in for the Turn Planner (A5); not a topic catalog.
+ */
 export const QUESTION_BANK: Record<string, string[]> = {
-  API_DESIGN: [
+  api: [
     'Bạn kể về một API bạn đã thiết kế gần đây nhé. Bạn chọn cách đặt endpoint và phiên bản API thế nào?',
     'Nếu một client cũ vẫn gọi phiên bản API cũ, bạn sẽ thay đổi API mà không làm hỏng client đó ra sao?',
     'Bạn phân trang cho một danh sách rất lớn theo cách nào, và vì sao?',
   ],
-  DATABASE: [
+  postgresql: [
     'Bạn đã từng gặp một truy vấn PostgreSQL chạy chậm chưa? Bạn tìm ra nguyên nhân thế nào?',
     'Khi nào bạn chọn thêm index, và khi nào index lại gây hại?',
     'Hai giao dịch cùng cập nhật một số dư tài khoản, bạn tránh sai lệch dữ liệu bằng cách nào?',
   ],
-  ERROR_HANDLING: [
-    'Khi gọi API thanh toán bị timeout, bạn xử lý retry thế nào để không trừ tiền khách hai lần?',
-    'Bạn phân biệt lỗi nào nên retry, lỗi nào không nên retry ra sao?',
-  ],
-  QUEUES: [
+  'thanh toán': RETRY_LINES,
+  retry: RETRY_LINES,
+  queue: [
     'Bạn kể về hệ thống hàng đợi đã làm nhé. Vì sao cần hàng đợi ở chỗ đó?',
     'Nếu consumer xử lý một message bị lỗi giữa chừng, chuyện gì xảy ra với message đó?',
   ],
-  CACHING: [
+  redis: [
     'Bạn đã dùng Redis để cache dữ liệu gì, và làm sao để cache không bị cũ?',
     'Khi rất nhiều request cùng hỏi một khóa vừa hết hạn, bạn xử lý thế nào?',
   ],
-  DEVOPS: ['Quy trình từ lúc bạn merge code tới lúc chạy trên production diễn ra thế nào?'],
-  COMMUNICATION: [
+  docker: ['Quy trình từ lúc bạn merge code tới lúc chạy trên production diễn ra thế nào?'],
+  'giao tiếp': [
     'Bạn kể về một lần phải giải thích một vấn đề kỹ thuật cho người không làm kỹ thuật nhé.',
   ],
-  LLM_SYSTEMS: [
+  llm: [
     'Bạn kể về một ứng dụng LLM bạn đã đưa lên production. Phần khó nhất là gì?',
     'Khi mô hình trả lời sai định dạng, hệ thống của bạn xử lý thế nào?',
     'Bạn giảm 30% chi phí gọi LLM bằng cách nào, và đo con số đó ra sao?',
   ],
-  ML_EVAL: [
+  'đánh giá': [
     'Bạn đánh giá chất lượng câu trả lời của một ứng dụng LLM như thế nào?',
     'Làm sao bạn biết một thay đổi prompt làm hệ thống tốt lên chứ không chỉ khác đi?',
   ],
-  PYTHON: [
+  python: [
     'Bạn xử lý tác vụ chạy lâu trong một ứng dụng Python web thế nào để không chặn request?',
   ],
+}
+
+/** Mock interviewer lines for a competency: the first bank whose key is in its name. */
+export function scriptedQuestions(name: string): string[] {
+  const lower = name.toLowerCase()
+  const key = Object.keys(QUESTION_BANK).find((k) => lower.includes(k))
+  return key
+    ? QUESTION_BANK[key]!
+    : [
+        `Bạn kể về kinh nghiệm của bạn liên quan tới ${name} nhé.`,
+        `Với ${name}, phần nào bạn thấy khó nhất, và bạn đã xử lý ra sao?`,
+      ]
 }
 
 export const CLARIFY_PREFIX = 'Mình nói rõ hơn nhé: '
@@ -393,8 +388,8 @@ export const DONE_TRANSCRIPT: SeedItem[] = [
     kind: 'question',
     id: 'q1',
     index: 1,
-    text: QUESTION_BANK.API_DESIGN![0]!,
-    competency: { id: 'API_DESIGN', name: 'Thiết kế API' },
+    text: QUESTION_BANK.api![0]!,
+    competency: { id: 'comp-rq1', name: 'Thiết kế API' },
     depth: 'L3',
     unplanned: false,
     at_min: 0,
@@ -415,8 +410,8 @@ export const DONE_TRANSCRIPT: SeedItem[] = [
     kind: 'question',
     id: 'q2',
     index: 2,
-    text: QUESTION_BANK.API_DESIGN![1]!,
-    competency: { id: 'API_DESIGN', name: 'Thiết kế API' },
+    text: QUESTION_BANK.api![1]!,
+    competency: { id: 'comp-rq1', name: 'Thiết kế API' },
     depth: 'L4',
     unplanned: false,
     at_min: 3,
@@ -447,8 +442,8 @@ export const DONE_TRANSCRIPT: SeedItem[] = [
     kind: 'question',
     id: 'q3',
     index: 3,
-    text: QUESTION_BANK.DATABASE![0]!,
-    competency: { id: 'DATABASE', name: 'Database' },
+    text: QUESTION_BANK.postgresql![0]!,
+    competency: { id: 'comp-rq2', name: 'PostgreSQL' },
     depth: 'L3',
     unplanned: false,
     at_min: 6,
@@ -469,8 +464,8 @@ export const DONE_TRANSCRIPT: SeedItem[] = [
     kind: 'question',
     id: 'q4',
     index: 4,
-    text: QUESTION_BANK.ERROR_HANDLING![0]!,
-    competency: { id: 'ERROR_HANDLING', name: 'Xử lý lỗi' },
+    text: QUESTION_BANK['thanh toán']![0]!,
+    competency: { id: 'comp-rq4', name: 'Hệ thống thanh toán' },
     depth: 'L3',
     unplanned: false,
     at_min: 10,
@@ -500,8 +495,8 @@ export const DONE_TRANSCRIPT: SeedItem[] = [
     kind: 'question',
     id: 'q5',
     index: 5,
-    text: QUESTION_BANK.QUEUES![0]!,
-    competency: { id: 'QUEUES', name: 'Hàng đợi' },
+    text: QUESTION_BANK.queue![0]!,
+    competency: { id: 'comp-rq3', name: 'Message queue' },
     depth: 'L2',
     unplanned: false,
     at_min: 14,
@@ -519,8 +514,8 @@ export const DONE_TRANSCRIPT: SeedItem[] = [
     kind: 'question',
     id: 'q6',
     index: 6,
-    text: QUESTION_BANK.DATABASE![2]!,
-    competency: { id: 'DATABASE', name: 'Database' },
+    text: QUESTION_BANK.postgresql![2]!,
+    competency: { id: 'comp-rq2', name: 'PostgreSQL' },
     depth: 'L4',
     unplanned: false,
     at_min: 16,
@@ -542,7 +537,7 @@ export const DONE_TRANSCRIPT: SeedItem[] = [
     id: 'q7',
     index: 7,
     text: 'Bạn vừa nhắc tới Redis trong CV. Bạn dùng nó để làm gì trong dự án thanh toán?',
-    competency: { id: 'CACHING', name: 'Caching' },
+    competency: { id: 'comp-redis', name: 'Redis' },
     depth: 'L2',
     unplanned: true,
     at_min: 21,

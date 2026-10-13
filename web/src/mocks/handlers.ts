@@ -452,16 +452,6 @@ export const handlers = [
     db.deleteSession(params.id)
     return new HttpResponse(null, { status: 204 })
   }),
-  get<{ id: string }>('/sessions/:id/match', ({ params }) => {
-    const s = db.sessionRow(params.id)
-    if (!s) return notFound()
-    db.sessionSummary(s)
-    const m = db.match(s)
-    return m
-      ? HttpResponse.json(m)
-      : fail(404, 'analysis_not_ready', 'CV hoặc JD chưa phân tích xong.')
-  }),
-
   // ----- Blueprint -----
   post<{ id: string }>('/sessions/:id/blueprint', ({ params }) => {
     const s = db.sessionRow(params.id)

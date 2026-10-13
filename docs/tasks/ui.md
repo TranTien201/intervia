@@ -261,13 +261,15 @@ Mỗi thành phần có đủ trạng thái (thường, hover, focus thấy rõ,
 
 ### UI-5.5 Bỏ competency catalog và khối Đối chiếu (đổi thiết kế 2026-10-13)
 Lý do: `docs/design/extraction.md` mục 5. Type mới: `docs/design/api.md`.
-- [ ] `src/api/types.ts`: bỏ `Skill.catalog_id`, `Requirement.catalog_id`, `JdRequirements.unmapped`, `MatchResult`. `Requirement.name` giờ là nhãn ngắn rút từ JD (không còn là tên competency).
-- [ ] Trình sửa yêu cầu (`UI-4.4`, `RequirementsEditor.tsx`): bỏ mục "Không map được"; mỗi dòng hiện `name` + câu gốc như cũ.
-- [ ] Trình sửa hồ sơ (`ProfileEditor.tsx`): kỹ năng người dùng thêm không còn `catalog_id`.
-- [ ] Trang 3 (`MatchDone.tsx`): bỏ khối "Đối chiếu" và lời gọi `GET …/match` (hook, query key, chỗ làm mới sau khi phân tích xong ở `UI-5.2`). Bố cục còn hai cột hồ sơ + yêu cầu.
-- [ ] Mock: bỏ `CATALOG`, `competencyName`, hàm `match()` và handler `…/match` (`src/mocks/seed.ts`, `db.ts`, `handlers.ts`); yêu cầu JD mẫu có `name` là nhãn rút từ JD; `buildBlueprint` đặt tên competency từ `name` của yêu cầu.
-- [ ] Sửa các test liên quan (`profile-editor`, `requirements-editor`, `session-match`, `mock-api`).
+- [x] `src/api/types.ts`: bỏ `Skill.catalog_id`, `Requirement.catalog_id`, `JdRequirements.unmapped`, `MatchResult`. `Requirement.name` giờ là nhãn ngắn rút từ JD (không còn là tên competency).
+- [x] Trình sửa yêu cầu (`UI-4.4`, `RequirementsEditor.tsx`): bỏ mục "Không map được"; mỗi dòng hiện `name` + câu gốc như cũ.
+- [x] Trình sửa hồ sơ (`ProfileEditor.tsx`): kỹ năng người dùng thêm không còn `catalog_id`.
+- [x] Trang 3 (`MatchDone.tsx`): bỏ khối "Đối chiếu" và lời gọi `GET …/match` (hook, query key, chỗ làm mới sau khi phân tích xong ở `UI-5.2`). Bố cục còn hai cột hồ sơ + yêu cầu.
+- [x] Mock: bỏ `CATALOG`, `competencyName`, hàm `match()` và handler `…/match` (`src/mocks/seed.ts`, `db.ts`, `handlers.ts`); yêu cầu JD mẫu có `name` là nhãn rút từ JD; `buildBlueprint` đặt tên competency từ `name` của yêu cầu.
+- [x] Sửa các test liên quan (`profile-editor`, `requirements-editor`, `session-match`, `mock-api`).
 - **Xong khi:** `npm test`, `npm run typecheck`, `npm run lint` qua; `grep -r "catalog_id\|unmapped\|MatchResult" web/src` không còn kết quả.
+- **Đã xong (2026-10-13):** bỏ hẳn type, hook `useMatch`, key `qk.match`, khối "Đối chiếu" (trang 3 vẫn tên "Đối chiếu CV–JD", còn hai cột hồ sơ + yêu cầu). Mock: yêu cầu JD mẫu đặt tên ngắn theo chữ trong JD (vd "PostgreSQL", "Message queue", "Hệ thống thanh toán"); các ý trước là `unmapped` thành yêu cầu thường ("3+ năm kinh nghiệm backend", "Mentor junior"). JD dán mới: mỗi dòng gạch đầu dòng thành một yêu cầu (tên = 5 từ đầu, câu gốc = cả dòng). Blueprint mock: id competency `comp-<id yêu cầu>`, tên = tên yêu cầu. Câu hỏi giả: `QUESTION_BANK` đổi thành theo từ khóa trong tên competency (`scriptedQuestions()`), không khớp thì dùng câu chung. Đổi khóa sessionStorage của mock thành `intervia-mock-db-v2` để tab cũ không nạp dữ liệu kiểu cũ. Sửa test `requirements-editor`, `session-match`, `transcript`.
+
 
 ### UI-5.6 Chọn chế độ trích xuất (thêm 2026-10-13)
 Thiết kế: `docs/design/ui-pages.md` trang 2 ("Tùy chọn phân tích"), trang 7, 8, 9 ("Phân tích lại"); `docs/design/extraction.md` mục 8; type ở `docs/design/api.md`.

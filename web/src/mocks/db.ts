@@ -6,6 +6,7 @@ import type {
   AnalysisProgress,
   BlueprintView,
   CandidateProfile,
+  CompetencyRef,
   Coverage,
   CvSummary,
   CvVersion,
@@ -13,7 +14,6 @@ import type {
   JdRequirements,
   JdVersion,
   Level,
-  MatchResult,
   Mode,
   SessionEndSummary,
   SessionStep,
@@ -22,18 +22,17 @@ import type {
   VersionOrigin,
 } from '@/api/types'
 import {
-  CATALOG,
-  competencyName,
   DONE_TRANSCRIPT,
-  QUESTION_BANK,
   ROLES,
   SEED_CVS,
   SEED_JDS,
   SEED_SESSIONS,
+  scriptedQuestions,
 } from './seed'
 import { resetAuth } from './auth'
 
-const STORAGE_KEY = 'intervia-mock-db'
+// Bump when the stored shape changes, so an old tab does not load stale data.
+const STORAGE_KEY = 'intervia-mock-db-v2'
 const HOUR = 3_600_000
 const DAY = 24 * HOUR
 
@@ -248,7 +247,7 @@ function seed(): DbState {
         id: `q${i + 1}`,
         index: i + 1,
         text: plan[i]!.text,
-        competency: { id: plan[i]!.competency, name: competencyName(plan[i]!.competency) },
+        competency: plan[i]!.competency,
         depth: 'L4',
         unplanned: false,
         created_at: new Date(start + i * 4 * 60_000).toISOString(),
@@ -467,21 +466,29 @@ function tickJd(j: JdRow) {
   save()
 }
 
-/** Naive keyword mapping so a pasted JD yields plausible requirements. */
+/**
+ * Plausible requirements from a pasted JD: each bullet line becomes one, labelled with its first
+ * words and quoted verbatim (A2 labels requirements from the JD's own words).
+ */
 function requirementsFromText(text: string): JdRequirements {
-  const lower = text.toLowerCase()
-  const hits = CATALOG.filter((c) => c.keywords.some((k) => lower.includes(k)))
-  const picked = hits.length > 0 ? hits : CATALOG.slice(0, 3)
+  const BULLET = /^\s*[-•*+]\s*/
+  const lines = text.split('\n').filter((l) => l.trim().length >= 3)
+  const bullets = lines.filter((l) => BULLET.test(l))
+  const picked = (bullets.length > 0 ? bullets : lines)
+    .slice(0, 6)
+    .map((l) => l.replace(BULLET, '').trim())
   return {
-    requirements: picked.slice(0, 6).map((c, i) => ({
+    requirements: picked.map((line, i) => ({
       id: `rq${i + 1}`,
-      catalog_id: c.id,
-      name: c.name,
+      name: line
+        .split(/\s+/)
+        .slice(0, 5)
+        .join(' ')
+        .replace(/[.,;:]$/, ''),
       kind: i < 3 ? 'required' : 'preferred',
       importance: i < 2 ? 3 : i < 4 ? 2 : 1,
-      source_quote: c.keywords[0] ?? null,
+      source_quote: line,
     })),
-    unmapped: [],
   }
 }
 
@@ -644,30 +651,8 @@ export function deleteSession(id: string) {
   save()
 }
 
-function profileOf(s: SessionRow) {
-  return cvRow(s.cv_id)?.versions.find((v) => v.version === s.cv_version)?.profile
-}
 function requirementsOf(s: SessionRow) {
   return jdRow(s.jd_id)?.versions.find((v) => v.version === s.jd_version)?.requirements
-}
-
-export function match(s: SessionRow): MatchResult | null {
-  const profile = profileOf(s)
-  const reqs = requirementsOf(s)
-  if (!profile || !reqs) return null
-  const have = new Set(profile.skills.map((k) => k.catalog_id).filter(Boolean))
-  const split = (kind: 'required' | 'preferred') => {
-    const list = reqs.requirements.filter((r) => r.kind === kind)
-    return {
-      covered: list
-        .filter((r) => have.has(r.catalog_id))
-        .map((r) => ({ id: r.catalog_id, name: r.name })),
-      missing: list
-        .filter((r) => !have.has(r.catalog_id))
-        .map((r) => ({ id: r.catalog_id, name: r.name })),
-    }
-  }
-  return { required: split('required'), preferred: split('preferred') }
 }
 
 // ---------- blueprint ----------
@@ -688,7 +673,8 @@ function buildBlueprint(s: SessionRow, startedAt = Date.now()): BlueprintRow | n
     const weight = Math.round((raw[i]! / sum) * 100) / 100
     const n = Math.max(1, Math.round(weight * total))
     return {
-      id: r.catalog_id,
+      // A3 names competencies freely; the mock takes one per requirement.
+      id: `comp-${r.id}`,
       name: r.name,
       weight,
       depth_band: DEPTH[s.level],
@@ -738,14 +724,14 @@ function plannedTotal(s: SessionRow) {
 }
 
 // ---------- interview loop (scripted) ----------
-function questionPlan(s: SessionRow): { competency: string; text: string }[] {
+function questionPlan(s: SessionRow): { competency: CompetencyRef; text: string }[] {
   const comps = s.blueprint?.view.competencies ?? []
-  const out: { competency: string; text: string }[] = []
+  const out: { competency: CompetencyRef; text: string }[] = []
   for (let round = 0; round < 3; round++) {
     for (const c of comps) {
-      const bank = QUESTION_BANK[c.id] ?? []
-      const text = bank[round]
-      if (text && round < c.questions_max) out.push({ competency: c.id, text })
+      const text = scriptedQuestions(c.name)[round]
+      if (text && round < c.questions_max)
+        out.push({ competency: { id: c.id, name: c.name }, text })
     }
   }
   return out
@@ -772,8 +758,9 @@ export function nextQuestion(s: SessionRow): TranscriptItem | null {
     id: nextId('q'),
     index: asked + 1,
     text: p.text,
-    competency: { id: p.competency, name: competencyName(p.competency) },
-    depth: s.blueprint?.view.competencies.find((c) => c.id === p.competency)?.depth_band[0] ?? null,
+    competency: p.competency,
+    depth:
+      s.blueprint?.view.competencies.find((c) => c.id === p.competency.id)?.depth_band[0] ?? null,
     unplanned: false,
     created_at: new Date().toISOString(),
   }

@@ -71,7 +71,6 @@ export interface CvSummary {
 export interface Skill {
   id: string
   name: string
-  catalog_id: string | null
   years: number | null
   source_quote: string | null
 }
@@ -132,7 +131,7 @@ export interface JdDetail extends JdSummary {
 
 export interface Requirement {
   id: string
-  catalog_id: string
+  /** Short label taken from the JD (not a fixed topic list). */
   name: string
   kind: 'required' | 'preferred'
   importance: 1 | 2 | 3
@@ -141,7 +140,6 @@ export interface Requirement {
 
 export interface JdRequirements {
   requirements: Requirement[]
-  unmapped: { id: string; text: string }[]
 }
 
 export interface JdVersion extends VersionInfo {
@@ -186,11 +184,6 @@ export interface CreateSessionInput {
   role_id: string | null
   role_custom: string | null
   level: Level
-}
-
-export interface MatchResult {
-  required: { covered: CompetencyRef[]; missing: CompetencyRef[] }
-  preferred: { covered: CompetencyRef[]; missing: CompetencyRef[] }
 }
 
 export interface BlueprintCompetency {

@@ -175,7 +175,6 @@ function skillsFromNames(current: Skill[], names: string[]): Skill[] {
       current.find((s) => s.name === name) ?? {
         id: crypto.randomUUID(),
         name,
-        catalog_id: null,
         years: null,
         source_quote: null,
       },

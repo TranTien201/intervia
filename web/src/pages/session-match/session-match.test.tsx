@@ -205,7 +205,7 @@ function countBlueprintPosts() {
 describe('SessionMatchPage when analysed (UI-5.3)', () => {
   afterEach(() => server.events.removeAllListeners())
 
-  it('shows profile | requirements with versions, library links and the match', async () => {
+  it('shows profile | requirements with versions and library links, no match block', async () => {
     const s = readySession()
     const row = db.sessionRow(s.id)!
     renderRoute(`/sessions/${s.id}/match`)
@@ -223,13 +223,9 @@ describe('SessionMatchPage when analysed (UI-5.3)', () => {
     expect(await main().findByRole('heading', { name: 'Kỹ năng' })).toBeInTheDocument()
     expect(main().getByRole('heading', { name: 'Yêu cầu' })).toBeInTheDocument()
 
-    const m = db.match(row)!
-    const total = m.required.covered.length + m.required.missing.length
-    expect(
-      await main().findByText(`Có trong CV: ${m.required.covered.length}/${total} bắt buộc`),
-    ).toBeInTheDocument()
-    const block = within(main().getByRole('heading', { name: 'Đối chiếu' }).parentElement!)
-    for (const c of m.required.missing) expect(block.getByText(c.name)).toBeInTheDocument()
+    // A3 compares CV and JD when it plans; the page shows no code-computed match.
+    expect(main().queryByRole('heading', { name: 'Đối chiếu' })).toBeNull()
+    expect(main().queryByText(/Có trong CV/)).toBeNull()
   })
 
   it('saving an edit creates a new version and switches the session to it', async () => {

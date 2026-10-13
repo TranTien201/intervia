@@ -8,10 +8,9 @@ import {
   useCvVersion,
   useJd,
   useJdVersion,
-  useMatch,
   useUpdateSessionVersions,
 } from '@/api/hooks'
-import type { MatchResult, SessionSummary, VersionRef } from '@/api/types'
+import type { SessionSummary, VersionRef } from '@/api/types'
 import { Banner } from '@/components/Banner'
 import { Card } from '@/components/Card'
 import { PageSkeleton, QueryView } from '@/components/PageStates'
@@ -27,8 +26,7 @@ type Kind = 'cv' | 'jd'
 type Versions = { cv_version?: number; jd_version?: number }
 
 /**
- * [3] once the CV and JD are analysed (UI-5.3): profile | requirements side by side, the
- * code-computed match, and "Lưu và tạo kế hoạch". Editors show the versions the session uses;
+ * [3] once the CV and JD are analysed (UI-5.3): profile | requirements side by side, and "Lưu và tạo kế hoạch". Editors show the versions the session uses;
  * saving one creates a new version of the CV/JD and switches the session to it.
  */
 export function MatchDone({ session }: { session: SessionSummary }) {
@@ -120,7 +118,6 @@ export function MatchDone({ session }: { session: SessionSummary }) {
               />
             )}
           </Column>
-          <MatchBlock sessionId={session.id} />
         </div>
       </div>
 
@@ -245,52 +242,5 @@ function JdColumnEditor({ session, version, readOnly, editorRef, onSaved }: Edit
         />
       )}
     </QueryView>
-  )
-}
-
-/** Computed by code from the saved versions: information, not a score (no red). */
-function MatchBlock({ sessionId }: { sessionId: string }) {
-  const match = useMatch(sessionId)
-  return (
-    <Card className="grid gap-3">
-      <SectionLabel>Đối chiếu</SectionLabel>
-      <QueryView query={match} loading={<PageSkeleton rows={2} />}>
-        {(m) => <MatchLines match={m} />}
-      </QueryView>
-      <p className="text-xs text-ink2">Tính theo bản đã lưu, chỉ để tham khảo, không phải điểm.</p>
-    </Card>
-  )
-}
-
-function MatchLines({ match }: { match: MatchResult }) {
-  const groups = [
-    { label: 'bắt buộc', ...match.required },
-    { label: 'nên có', ...match.preferred },
-  ].filter((g) => g.covered.length + g.missing.length > 0)
-  if (groups.length === 0)
-    return <p className="text-sm text-ink2">JD chưa có yêu cầu nào để đối chiếu.</p>
-  return (
-    <div className="grid gap-3 text-sm text-ink">
-      {groups.map((g) => (
-        <div key={g.label} className="grid gap-1">
-          <p>
-            <span aria-hidden>✓ </span>Có trong CV: {g.covered.length}/
-            {g.covered.length + g.missing.length} {g.label}
-          </p>
-          {g.missing.length > 0 && (
-            <>
-              <p className="text-ink2">
-                <span aria-hidden>– </span>Chưa thấy trong CV:
-              </p>
-              <ul className="grid gap-0.5 pl-4">
-                {g.missing.map((c) => (
-                  <li key={c.id}>{c.name}</li>
-                ))}
-              </ul>
-            </>
-          )}
-        </div>
-      ))}
-    </div>
   )
 }

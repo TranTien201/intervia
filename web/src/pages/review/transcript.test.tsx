@@ -15,7 +15,7 @@ describe('ReviewPage transcript (UI-7.2)', () => {
   it('shows each question with its heading, question and answer', async () => {
     renderRoute('/sessions/s-done/review')
     const q4 = await question(4)
-    expect(q4.getByRole('heading')).toHaveTextContent('Câu 4 · Xử lý lỗi · L3')
+    expect(q4.getByRole('heading')).toHaveTextContent('Câu 4 · Hệ thống thanh toán · L3')
     expect(q4.getByText(/idempotency key/)).toBeVisible()
     // Typed answer with code: rendered as a code block.
     const q3 = await question(3)

@@ -18,7 +18,6 @@ import type {
   JdRequirements,
   JdSummary,
   JdVersion,
-  MatchResult,
   Mode,
   PasswordChange,
   Role,
@@ -76,8 +75,7 @@ function useEndLogin<T>(mutationFn: (arg: T) => Promise<void>) {
   })
 }
 
-export const useLogout = () =>
-  useEndLogin(() => request<void>('/auth/logout', { method: 'POST' }))
+export const useLogout = () => useEndLogin(() => request<void>('/auth/logout', { method: 'POST' }))
 
 export const useDeleteAccount = () =>
   useEndLogin((email: string) => request<void>('/account', { method: 'DELETE', body: { email } }))
@@ -366,13 +364,6 @@ export function useDeleteSession() {
     },
   })
 }
-
-export const useMatch = (id: string, enabled = true) =>
-  useQuery({
-    queryKey: qk.match(id),
-    queryFn: () => request<MatchResult>(`/sessions/${id}/match`),
-    enabled,
-  })
 
 export const useBlueprint = (id: string) =>
   useQuery({
