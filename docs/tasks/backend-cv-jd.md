@@ -610,7 +610,7 @@ class DocumentExtractor(Protocol):
 
 **File tạo:** `backend/app/domain/profiling.py`, `backend/app/domain/quotes.py` (dùng chung với 4.6), `backend/tests/test_profiling.py`, `backend/tests/test_quotes.py`.
 
-**Hàm:**
+**Hàm:** (thêm khi làm: `parse_cv_extraction(data)` validate output thô, danh sách thiếu khóa coi là `[]`, spike mục "Việc code phải làm" ý 3)
 
 ```python
 def build_profile(extraction: CvExtraction, citations: dict[str, list[Citation]],
@@ -623,11 +623,12 @@ def build_profile(extraction: CvExtraction, citations: dict[str, list[Citation]]
    - Khóa so trùng: chuẩn hóa Unicode NFC, chữ thường, gộp khoảng trắng (`"Postgre SQL "` ≠ `"PostgreSQL"`: không đoán, chỉ gộp khi giống sau chuẩn hóa).
    - Trùng nhau: giữ bản `source = skills_section` nếu có; `years` lấy giá trị lớn nhất khác `null`.
    - Tên rỗng → bỏ.
-   - `source_quote` = trích dẫn của mục đó (nếu có), không thì `null`.
+   - `source_quote` = trích dẫn (`citation`) của `skills[i].name` (bản giữ lại trước, rồi các bản trùng) nếu tìm thấy trong `document_text`, không thì `null`. Không có `document_text`: nhận trích dẫn trừ khi nó chỉ là đường dẫn trường (vd `experiences.0.kind`, spike câu 7).
 2. **Kinh nghiệm**
-   - `organization` = `organization` nếu có, không thì `name`.
+   - `organization` = `name`; dự án làm cho công ty (`organization` khác `name`) → `"<name> (<organization>)"`, để không mất tên dự án (đã đổi khi làm, thấy trên CV thật).
+   - `source_quote` = trích dẫn đầu tiên của `role` / `name` / `organization` qua cùng quy tắc như kỹ năng.
    - `role` = `role` hoặc `""` (type web là `string`, không nhận `null`).
-   - `period` = `period` nếu có; không thì ghép từ `start`–`end` (`is_current` → "nay"); không có gì thì `""`.
+   - `period` = `period` nếu có; không thì ghép từ `start`–`end` (`YYYY-MM` → `MM/YYYY`, `is_current` → "nay"); không có gì thì `""`.
    - `technologies` bỏ trùng, giữ thứ tự.
    - Cả `role` và `organization` đều rỗng → bỏ mục.
 3. **Claim** = các `highlights` có `kind` là `metric` hoặc `ownership`, theo thứ tự kinh nghiệm rồi thứ tự gạch đầu dòng.
@@ -636,7 +637,7 @@ def build_profile(extraction: CvExtraction, citations: dict[str, list[Citation]]
    - `metric`, `subject` chép sang.
    - `verifiable` = `kind == "metric"`.
    - `quote_status`: nếu có `document_text` → `found` khi `quote_found(text, document_text)`, không thì `not_found`. Nếu không có `document_text` → `found` khi có trích dẫn của mục này (`citations`), không thì `not_found`.
-4. **`quote_found(quote, text)`** (`quotes.py`): chuẩn hóa cả hai (NFC, chữ thường, gộp mọi khoảng trắng và xuống dòng thành một dấu cách, bỏ ký tự gạch đầu dòng `•–-*` ở đầu, thống nhất các loại dấu nháy) rồi so chuỗi con.
+4. **`quote_found(quote, text)`** (`quotes.py`): chuẩn hóa cả hai (NFC, chữ thường, gộp mọi khoảng trắng và xuống dòng thành một dấu cách, bỏ ký tự gạch đầu dòng `•–-*` ở đầu **mỗi dòng**, thống nhất các loại dấu nháy và gạch ngang, bỏ `*` Markdown và ký tự độ rộng 0) rồi so chuỗi con. Không bỏ dấu tiếng Việt.
 5. **id:** `sk1, sk2…`, `ex1…`, `cl1…` theo thứ tự xuất hiện.
 6. **`ProfileStats`:** số mục bị bỏ theo từng lý do, số claim `not_found`. Chỉ log số liệu này, không log nội dung.
 
@@ -653,7 +654,7 @@ Các trường không lên web (`education`, `credentials`, `languages`, `senior
 - Output validate được bằng type `CandidateProfile` (khớp web).
 
 **Output / xong khi:**
-- [ ] Hàm + test qua; chạy trên fixture 4.3 ra hồ sơ trông giống dữ liệu mock (kiểm tra bằng mắt, ghi nhận xét vào PR).
+- [x] Hàm + test qua; chạy trên kết quả spike 4.3 (`.spike/out/`, chưa có fixture đã che) ra hồ sơ trông giống dữ liệu mock (kiểm tra bằng mắt 2026-10-13).
 
 ---
 

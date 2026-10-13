@@ -84,15 +84,15 @@ LlamaExtract trả về dữ liệu thô theo schema mục 2–3 (`CvExtraction`
 |---|---|---|
 | Tag kỹ năng ("Python ✕") | `Skill.name` | `skills[].name` |
 | | `Skill.years` | `skills[].years` |
-| | `Skill.source_quote` | trích dẫn của `skills[]` |
-| "Backend Engineer @ Công ty ABC · 2022–nay" | `Experience.role`, `organization`, `period` | `role`; `organization`, hoặc `name` khi là dự án không thuộc công ty; `period` nguyên văn |
+| | `Skill.source_quote` | trích dẫn (`citation`) của `skills[].name`, chỉ giữ khi tìm thấy trong chữ tài liệu |
+| "Backend Engineer @ Công ty ABC · 2022–nay" | `Experience.role`, `organization`, `period` | `role`; `name` (dự án làm cho công ty: "Tên dự án (Công ty)", để không mất tên dự án); `period` nguyên văn, không có thì ghép từ `start`–`end` |
 | | `Experience.technologies` | `experiences[].technologies` |
-| | `Experience.source_quote` | trích dẫn của `experiences[]` |
+| | `Experience.source_quote` | trích dẫn của `role` / `name` / `organization`, chỉ giữ khi tìm thấy trong chữ tài liệu |
 | Thẻ claim: dòng đậm | `Claim.statement` | `highlights[].statement` (chỉ highlight `metric` / `ownership`) |
 | Thẻ claim: câu gốc trong ngoặc kép | `Claim.source_quote` | `highlights[].text` (nguyên văn) |
 | | `Claim.metric`, `subject` | `highlights[].metric`, `subject` |
 | | `Claim.verifiable` | `kind == metric` |
-| Cảnh báo hổ phách | `Claim.quote_status` | `found` khi có trích dẫn từ `cite_sources`, ngược lại `not_found`; claim người dùng tự thêm là `user_added` (web đặt) |
+| Cảnh báo hổ phách | `Claim.quote_status` | `found` khi `highlights[].text` tìm thấy trong chữ tài liệu (chữ đã gửi, hoặc chữ LlamaCloud parse từ file); không có chữ tài liệu thì dựa vào `citation`. Ngược lại `not_found`. Claim người dùng tự thêm là `user_added` (web đặt). Không tin `citation` khi có chữ: spike BE-4.3 câu 7 |
 
 ### 4.2. JD → `JdSummary`, `JdRequirements` (thư viện, trang 3, trang 9)
 

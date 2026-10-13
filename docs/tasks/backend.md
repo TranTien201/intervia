@@ -47,7 +47,8 @@
 - [x] BE-4.3. Chạy thử LlamaExtract trên CV/JD thật (spike)
   - **Đã xong tạm (2026-10-13):** `scripts/try_extract.py`, `scripts/show_extract.py`; báo cáo `docs/spikes/llamaextract.md` (mới chạy 1 CV + 1 JD tiếng Anh). Kết luận: dùng tiếp có điều kiện, người dùng chọn chế độ trích xuất (`extraction.md` mục 8). Sửa kèm: `jd_extract_v2`, schema `jd-2` (không tách danh sách lựa chọn). **Còn nợ:** chạy CV scan, 2 cột, tiếng Việt, DOCX, Junior, JD dán text / tiếng Việt; lưu fixture `tests/fixtures/extraction/` (cần trước BE-4.5).
 - [x] BE-4.4. Lớp provider trích xuất
-- [ ] BE-4.5. Chuyển kết quả CV thành hồ sơ (A1)
+- [x] BE-4.5. Chuyển kết quả CV thành hồ sơ (A1)
+  - **Đã xong (2026-10-13):** `app/domain/quotes.py` (`normalize`, `quote_found`, `QuoteChecker`: NFC, gạch đầu dòng, dấu nháy, gạch ngang, `*` Markdown, khoảng trắng, chữ hoa), `app/domain/profiling.py` (`build_profile` → `CandidateProfile` + `ProfileStats`; `parse_cv_extraction` coi danh sách thiếu khóa là `[]`). Khác đặc tả: trích dẫn của LlamaCloud chỉ được dùng khi khớp chữ tài liệu (spike câu 7); dự án làm cho công ty hiện "Tên dự án (Công ty)"; `period` ghép thành `MM/YYYY – nay`. Test: `tests/test_quotes.py`, `tests/test_profiling.py` (dùng `fake_data/cv_basic.json`). **Còn nợ từ BE-4.3:** chưa có fixture CV thật đã che trong `tests/fixtures/extraction/`; đã kiểm tra bằng mắt trên kết quả spike trong `.spike/out/` (không đưa vào git).
 - [ ] BE-4.6. Phân tích JD (A2) và tải JD bằng file
 - [ ] BE-4.7. Chạy phân tích nền và báo tiến trình
 - [ ] BE-4.8. Nối web với backend thật và cập nhật tài liệu
