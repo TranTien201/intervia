@@ -10,7 +10,8 @@ TEST_DB = "intervia_test"
 @pytest.fixture(scope="session")
 def settings() -> Settings:
     # Same URI as dev, separate database that tests may drop freely.
-    return Settings(app_env="test", mongodb_db=TEST_DB, mongodb_timeout_ms=2000)
+    # Login off by default whatever .env says; tests that need it turn it on explicitly.
+    return Settings(app_env="test", mongodb_db=TEST_DB, mongodb_timeout_ms=2000, auth_enabled=False)
 
 
 @pytest.fixture(scope="session")

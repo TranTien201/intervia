@@ -14,7 +14,7 @@ class Payload(BaseModel):
 
 
 def _client() -> httpx.AsyncClient:
-    app = create_app(Settings(app_env="test"))
+    app = create_app(Settings(app_env="test", auth_enabled=False))
     router = APIRouter()
 
     @router.post("/echo")
