@@ -37,10 +37,17 @@ async def db(mongo_client: AsyncMongoClient):
 
 
 @pytest.fixture
-async def client(db, settings: Settings):
-    """HTTP client against the real app (startup included), login off."""
+async def app(db, settings: Settings):
+    """The real app, started (lifespan run), login off. `app.state.analysis.join()` waits for
+    the background analyses that CV / JD uploads start."""
     app = create_app(settings)
     async with app.router.lifespan_context(app):
-        transport = httpx.ASGITransport(app=app)
-        async with httpx.AsyncClient(transport=transport, base_url="http://test") as c:
-            yield c
+        yield app
+
+
+@pytest.fixture
+async def client(app):
+    """HTTP client against `app`."""
+    transport = httpx.ASGITransport(app=app)
+    async with httpx.AsyncClient(transport=transport, base_url="http://test") as c:
+        yield c

@@ -19,7 +19,7 @@ from pymongo.errors import DuplicateKeyError
 
 from app.api.errors import AppError
 from app.db.mongo import utcnow
-from app.schemas.analysis import AnalysisState, ExtractionMode, VersionInfo
+from app.schemas.analysis import AnalysisError, AnalysisState, ExtractionMode, VersionInfo
 from app.schemas.cv import CvRecord, CvVersionRecord
 
 COLLECTION = "cvs"
@@ -117,6 +117,12 @@ async def open_file(db: AsyncDatabase, file_id: str) -> AsyncGridOut:
         raise AppError("not_found", 404, "Không tìm thấy file CV.") from None
 
 
+async def read_file(db: AsyncDatabase, file_id: str) -> bytes:
+    """The whole stored file (at most the 5 MB upload limit). Raises `not_found` if gone."""
+    stream = await open_file(db, file_id)
+    return await stream.read()
+
+
 async def latest_version(db: AsyncDatabase, cv_id: str) -> int | None:
     """max(version) read from cv_versions (not the `cvs.latest_version` copy)."""
     doc = await db[VERSIONS].find_one(
@@ -174,6 +180,39 @@ async def set_analysis(db: AsyncDatabase, cv_id: str, attempt_id: str, **fields:
         {"$set": {f"analysis.{key}": value for key, value in fields.items()}},
     )
     return result.matched_count == 1
+
+
+async def restart_analysis(
+    db: AsyncDatabase, cv_id: str, expected_attempt_id: str, analysis: AnalysisState
+) -> bool:
+    """Replace the whole `analysis` with a new attempt, only if `expected_attempt_id` is still
+    the current one (compare-and-swap: of two concurrent restarts, one wins)."""
+    result = await db[COLLECTION].update_one(
+        {"_id": cv_id, "analysis.attempt_id": expected_attempt_id, **_LIVE},
+        {"$set": {"analysis": analysis.model_dump()}},
+    )
+    return result.matched_count == 1
+
+
+async def fail_unfinished(db: AsyncDatabase, error: AnalysisError) -> int:
+    """At startup: analyses left `pending` / `running` by a stopped process become `failed`."""
+    result = await db[COLLECTION].update_many(
+        {"analysis.status": {"$in": ["pending", "running"]}},
+        {
+            "$set": {
+                "analysis.status": "failed",
+                "analysis.error": error.model_dump(),
+                "analysis.finished_at": utcnow(),
+            }
+        },
+    )
+    return result.modified_count
+
+
+async def list_deleting(db: AsyncDatabase) -> list[tuple[str, str]]:
+    """(user_id, cv_id) of deletions cut off midway, to finish at startup."""
+    cursor = db[COLLECTION].find({"deleting": True}, {"user_id": 1})
+    return [(doc["user_id"], doc["_id"]) async for doc in cursor]
 
 
 # ---- Deletion steps, in order (see domain.library.delete_cv) ----

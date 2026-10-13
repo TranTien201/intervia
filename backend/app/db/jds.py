@@ -11,7 +11,7 @@ from pymongo.errors import DuplicateKeyError
 
 from app.api.errors import AppError
 from app.db.mongo import utcnow
-from app.schemas.analysis import AnalysisState, ExtractionMode, VersionInfo
+from app.schemas.analysis import AnalysisError, AnalysisState, ExtractionMode, VersionInfo
 from app.schemas.jd import JdRecord, JdVersionRecord
 
 COLLECTION = "jds"
@@ -139,6 +139,47 @@ async def set_analysis(db: AsyncDatabase, jd_id: str, attempt_id: str, **fields:
         {"$set": {f"analysis.{key}": value for key, value in fields.items()}},
     )
     return result.matched_count == 1
+
+
+async def set_meta(
+    db: AsyncDatabase, jd_id: str, company: str | None, position: str | None
+) -> None:
+    """Company and position read by the analysis, shown in the library."""
+    await db[COLLECTION].update_one(
+        {"_id": jd_id}, {"$set": {"company": company, "position": position}}
+    )
+
+
+async def restart_analysis(
+    db: AsyncDatabase, jd_id: str, expected_attempt_id: str, analysis: AnalysisState
+) -> bool:
+    """Same as `cvs.restart_analysis`."""
+    result = await db[COLLECTION].update_one(
+        {"_id": jd_id, "analysis.attempt_id": expected_attempt_id, **_LIVE},
+        {"$set": {"analysis": analysis.model_dump()}},
+    )
+    return result.matched_count == 1
+
+
+async def fail_unfinished(db: AsyncDatabase, error: AnalysisError) -> int:
+    """Same as `cvs.fail_unfinished`."""
+    result = await db[COLLECTION].update_many(
+        {"analysis.status": {"$in": ["pending", "running"]}},
+        {
+            "$set": {
+                "analysis.status": "failed",
+                "analysis.error": error.model_dump(),
+                "analysis.finished_at": utcnow(),
+            }
+        },
+    )
+    return result.modified_count
+
+
+async def list_deleting(db: AsyncDatabase) -> list[tuple[str, str]]:
+    """(user_id, jd_id) of deletions cut off midway."""
+    cursor = db[COLLECTION].find({"deleting": True}, {"user_id": 1})
+    return [(doc["user_id"], doc["_id"]) async for doc in cursor]
 
 
 # ---- Deletion steps, in order (see domain.library.delete_jd) ----

@@ -1,7 +1,7 @@
 from functools import lru_cache
 from typing import Literal
 
-from pydantic import SecretStr, model_validator
+from pydantic import Field, SecretStr, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -39,6 +39,8 @@ class Settings(BaseSettings):
     llama_tier_high: str = "agentic"
     extract_max_pages: int = 6  # caps the cost of an unexpectedly long file
     extract_timeout_s: int = 180  # per attempt; an attempt is retried up to twice
+    # Background analyses running at once (BE-4.7); later ones wait, shown as `pending`.
+    analysis_max_concurrency: int = Field(default=3, ge=1)
 
     @model_validator(mode="after")
     def _check_extractor_key(self) -> "Settings":

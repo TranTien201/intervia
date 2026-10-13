@@ -43,6 +43,8 @@ cp .env.example .env         # sửa MONGODB_URI nếu MongoDB ở chỗ khác
 
 Trích xuất CV/JD: mặc định `EXTRACTOR_PROVIDER=fake` (không cần key, mọi CV ra cùng một hồ sơ mẫu). Dùng LlamaCloud thật: đặt `EXTRACTOR_PROVIDER=llamacloud` và `LLAMA_CLOUD_API_KEY` trong `.env`; thiếu key thì app không khởi động. Các biến khác (gói theo mức chất lượng, số trang tối đa, thời gian chờ) xem `.env.example`. Test gọi LlamaCloud thật (tốn credit, mặc định bỏ qua): `RUN_LLAMACLOUD_TESTS=1 uv run pytest -m llamacloud`.
 
+Phân tích CV/JD chạy nền trong cùng tiến trình (asyncio, tối đa `ANALYSIS_MAX_CONCURRENCY` job cùng lúc); web hỏi tiến trình qua `GET /api/cvs/{id}/analysis`. Tắt server giữa chừng thì lần khởi động sau đánh dấu các phân tích dở dang là thất bại (không tự chạy lại để tránh tốn tiền), người dùng bấm "Phân tích lại". Chỉ chạy **một** tiến trình API (không dùng `--workers` > 1): tiến trình mới khởi động sẽ đánh dấu job của tiến trình kia là bị gián đoạn.
+
 Kiểm tra nhanh: `curl localhost:8000/api/health` → `{"status":"ok","db":"ok"}`. OpenAPI: `/openapi.json`, giao diện thử API: `/docs`.
 
 ## Quy ước

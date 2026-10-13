@@ -8,13 +8,14 @@ from pydantic import BaseModel
 from pymongo.asynchronous.database import AsyncDatabase
 from starlette.datastructures import FormData, UploadFile
 
-from app.api.deps import current_user, get_db
+from app.api.deps import current_user, get_analysis, get_db
 from app.api.errors import AppError
 from app.api.uploads import read_upload
 from app.db import jds
 from app.documents import read_text
-from app.domain import library, versions
-from app.schemas.analysis import VersionInfo
+from app.domain import analysis, library, versions
+from app.domain.analysis import AnalysisRunner
+from app.schemas.analysis import AnalysisProgress, VersionInfo
 from app.schemas.jd import JdDetail, JdRecord, JdRequirements, JdSummary, JdVersion
 from app.schemas.user import User
 
@@ -22,6 +23,7 @@ router = APIRouter(tags=["jds"])
 
 Db = Annotated[AsyncDatabase, Depends(get_db)]
 CurrentUser = Annotated[User, Depends(current_user)]
+Runner = Annotated[AnalysisRunner, Depends(get_analysis)]
 
 
 class PasteJdBody(BaseModel):
@@ -56,6 +58,10 @@ class RenameBody(BaseModel):
 class NewVersionBody(BaseModel):
     base_version: int
     requirements: JdRequirements
+
+
+class ReanalyzeBody(BaseModel):
+    mode: str | None = None  # default: the mode of the previous analysis
 
 
 async def _get_jd(db: AsyncDatabase, user: User, jd_id: str) -> JdRecord:
@@ -139,7 +145,7 @@ async def list_jds(user: CurrentUser, db: Db) -> list[JdSummary]:
         }
     },
 )
-async def create_jd(request: Request, user: CurrentUser, db: Db) -> JdSummary:
+async def create_jd(request: Request, user: CurrentUser, db: Db, runner: Runner) -> JdSummary:
     content_type = request.headers.get("content-type", "")
     if content_type.startswith("multipart/form-data"):
         async with request.form() as form:
@@ -155,6 +161,7 @@ async def create_jd(request: Request, user: CurrentUser, db: Db) -> JdSummary:
     else:
         raise AppError("unsupported_file", 415, "Hãy dán nội dung JD hoặc tải file PDF/DOCX.")
     jd = await jds.create_jd(db, user.id, name, text, mode=mode)
+    await runner.start_jd(jd)  # runs in the background; the web polls /analysis
     return jd.to_summary()
 
 
@@ -174,6 +181,23 @@ async def rename_jd(jd_id: str, body: RenameBody, user: CurrentUser, db: Db) -> 
     if jd is None:
         raise AppError("not_found", 404, "Không tìm thấy JD.")
     return jd.to_summary()
+
+
+@router.get("/jds/{jd_id}/analysis")
+async def get_jd_analysis(jd_id: str, user: CurrentUser, db: Db) -> AnalysisProgress:
+    jd = await _get_jd(db, user, jd_id)
+    return analysis.progress("jd", jd.analysis)
+
+
+@router.post("/jds/{jd_id}/reanalyze", status_code=202)
+async def reanalyze_jd(
+    jd_id: str, user: CurrentUser, db: Db, runner: Runner, body: ReanalyzeBody | None = None
+) -> AnalysisProgress:
+    jd = await _get_jd(db, user, jd_id)
+    mode = library.parse_reanalyze_mode(body.mode if body else None, library.JD_MODES)
+    if analysis.is_active(jd.analysis):
+        return analysis.progress("jd", jd.analysis)  # already running: no second job
+    return analysis.progress("jd", await runner.start_jd(jd, mode))
 
 
 @router.get("/jds/{jd_id}/versions")

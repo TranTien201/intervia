@@ -758,9 +758,17 @@ Lỗi không lường trước: log `exception` (không kèm nội dung CV) và 
 - Nhiều hơn `analysis_max_concurrency` job → số job chạy cùng lúc không vượt giới hạn.
 - JD: luồng thành công cập nhật `company`, `position`, `requirement_count`.
 
+**Đã làm (2026-10-13), khác/thêm so với trên:**
+- `start_cv(cv, mode?)` nhận bản ghi đã đọc và thay `analysis` bằng compare-and-swap theo `attempt_id` cũ (`restart_analysis`): hai yêu cầu phân tích lại cùng lúc thì chỉ một job chạy, yêu cầu thua nhận tiến trình hiện tại.
+- Kiểm tra "đã bị xóa" chạy ở cuối **mọi** job (thành công, lỗi, dừng): nếu CV/JD đã bị xóa hoặc đang xóa thì xóa cả phiên bản lẫn `llm_calls` của nó (lời gọi provider có thể kết thúc sau khi thủ tục xóa đã qua bước 4).
+- Chèn phiên bản trùng số với bản người dùng vừa lưu (`version_conflict`) → đọc lại số mới nhất, thử lại tối đa 3 lần.
+- JD phân tích lần đầu thất bại rồi phân tích lại thành công → bản 1 vẫn là `origin = analysis`.
+- Lỗi bất ngờ: log loại lỗi + stack, không log message (có thể trích nội dung CV).
+- Đánh dấu `failed` lúc khởi động giả định chỉ có một tiến trình API (ghi trong `backend/README.md`).
+
 **Output / xong khi:**
-- [ ] Tải CV / thêm JD tự phân tích; tiến trình đúng định dạng mock; test qua.
-- [ ] Không có đường lỗi nào để job kẹt ở `running`.
+- [x] Tải CV / thêm JD tự phân tích; tiến trình đúng định dạng mock; test qua.
+- [x] Không có đường lỗi nào để job kẹt ở `running` (tắt server giữa chừng: lần khởi động sau đánh dấu `failed`).
 
 ---
 

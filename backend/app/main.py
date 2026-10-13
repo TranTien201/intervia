@@ -9,6 +9,7 @@ from app.api import auth, cvs, health, jds, roles
 from app.api.errors import register_error_handlers
 from app.config import Settings, get_settings
 from app.db.mongo import create_client, ensure_indexes
+from app.domain import analysis
 from app.logging_setup import setup_logging
 from app.providers.extract import create_extractor
 
@@ -28,9 +29,15 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         await ensure_indexes(app.state.db)
         log.info("Connected to MongoDB database %r", settings.mongodb_db)
         app.state.extractor = create_extractor(settings)
+        # Before serving: jobs of a stopped process are gone, mark them interrupted.
+        await analysis.recover(app.state.db)
+        app.state.analysis = analysis.AnalysisRunner(
+            app.state.db, app.state.extractor, settings.analysis_max_concurrency
+        )
         try:
             yield
         finally:
+            await app.state.analysis.aclose()
             await app.state.extractor.aclose()
             await client.close()
 

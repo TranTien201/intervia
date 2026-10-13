@@ -4,6 +4,7 @@ from typing import get_args
 
 from pymongo.asynchronous.database import AsyncDatabase
 
+from app.api.errors import AppError
 from app.db import cvs, jds, llm_calls
 from app.schemas.analysis import NAME_MAX, ExtractionMode
 from app.schemas.jd import JD_TEXT_MAX
@@ -36,6 +37,19 @@ def parse_mode(raw: object, allowed: tuple[ExtractionMode, ...]) -> ExtractionMo
     return raw if isinstance(raw, str) and raw in allowed else None  # type: ignore[return-value]
 
 
+def parse_reanalyze_mode(
+    raw: str | None, allowed: tuple[ExtractionMode, ...]
+) -> ExtractionMode | None:
+    """`mode` of a re-analysis: None (keep the previous mode) when not given; 422 when not
+    allowed."""
+    if raw is None or raw == "":
+        return None
+    mode = parse_mode(raw, allowed)
+    if mode is None:
+        raise AppError("validation_error", 422, "Dữ liệu chưa hợp lệ.", {"mode": MODE_ERROR})
+    return mode
+
+
 async def delete_cv(db: AsyncDatabase, user_id: str, cv_id: str) -> bool:
     """Delete a CV and everything derived from it. False if there is no such CV.
 
@@ -65,3 +79,15 @@ async def delete_jd(db: AsyncDatabase, user_id: str, jd_id: str) -> bool:
     await llm_calls.delete_for_ref(db, "jd", jd.id)
     await jds.delete_jd_document(db, jd.id)
     return True
+
+
+async def resume_deletions(db: AsyncDatabase) -> int:
+    """At startup: finish CV / JD deletions cut off by a stopped process."""
+    pending = 0
+    for user_id, cv_id in await cvs.list_deleting(db):
+        await delete_cv(db, user_id, cv_id)
+        pending += 1
+    for user_id, jd_id in await jds.list_deleting(db):
+        await delete_jd(db, user_id, jd_id)
+        pending += 1
+    return pending

@@ -37,10 +37,14 @@ class FakeExtractor:
         result: ExtractionResult | None = None,
         error: ExtractorError | None = None,
         delay_s: float = 0,
+        gate: asyncio.Event | None = None,
     ):
         self.result = result
         self.error = error
         self.delay_s = delay_s
+        self.gate = gate  # when set, each call waits for it: holds a job in `running`
+        self.running = 0  # calls in progress right now
+        self.max_running = 0
         self.calls: list[FakeCall] = []
 
     def tier_for(self, quality: Quality) -> str:
@@ -61,8 +65,15 @@ class FakeExtractor:
     ) -> ExtractionResult:
         check_input(text, content)
         self.calls.append(FakeCall(text, content, filename, quality))
-        if self.delay_s:
-            await asyncio.sleep(self.delay_s)
+        self.running += 1
+        self.max_running = max(self.max_running, self.running)
+        try:
+            if self.delay_s:
+                await asyncio.sleep(self.delay_s)
+            if self.gate is not None:
+                await self.gate.wait()
+        finally:
+            self.running -= 1
         if self.error is not None:
             raise self.error
         if self.result is not None:

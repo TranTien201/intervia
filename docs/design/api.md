@@ -32,7 +32,7 @@
 | `session_locked` | 409 | Sửa đầu vào của phiên đã bắt đầu |
 | `session_not_active` | 409 | Gửi câu trả lời cho phiên chưa bắt đầu / đã kết thúc |
 | `turn_in_progress` | 409 | Gửi lượt mới khi AI chưa trả lời xong lượt trước |
-| `llm_error` | 502 | Lỗi từ provider LLM sau khi đã thử lại |
+| `llm_error` | 502 | Lỗi từ provider LLM sau khi đã thử lại. Phân tích CV/JD báo lỗi này trong `AnalysisProgress.error` (không qua HTTP status), cả khi phân tích bị gián đoạn vì server khởi động lại |
 | `internal_error` | 500 | Lỗi khác |
 
 - **Giới hạn** (đề xuất): CV ≤ 5 MB; JD ≤ 20 000 ký tự; câu trả lời ≤ 8 000 ký tự; tên CV/JD ≤ 120 ký tự.
@@ -172,7 +172,7 @@ interface AccountData {
 | GET | `/api/cvs/{id}/versions` | | `{version, created_at, origin}[]` |
 | GET | `/api/cvs/{id}/versions/{v}` | | `CvVersion` (`v` = `latest` được) |
 | POST | `/api/cvs/{id}/versions` | `{base_version, profile}` | `CvVersion` (bản mới). `base_version` cũ hơn bản mới nhất → 409 `version_conflict` |
-| POST | `/api/cvs/{id}/reanalyze` | `{mode?}` (mặc định: chế độ của lần phân tích trước) | `AnalysisProgress` (202) |
+| POST | `/api/cvs/{id}/reanalyze` | `{mode?}` (mặc định: chế độ của lần phân tích trước) | `AnalysisProgress` (202). Đang `pending`/`running` thì trả tiến trình hiện tại, không chạy thêm |
 | GET | `/api/cvs/{id}/file` | | File gốc |
 | GET | `/api/cvs/{id}/sessions` | | `SessionSummary[]` (kèm bản CV đã dùng trong `cv.version`) |
 

@@ -10,12 +10,13 @@ from gridfs.asynchronous.grid_file import AsyncGridOut
 from pydantic import BaseModel
 from pymongo.asynchronous.database import AsyncDatabase
 
-from app.api.deps import current_user, get_db
+from app.api.deps import current_user, get_analysis, get_db
 from app.api.errors import AppError
 from app.api.uploads import read_upload
 from app.db import cvs
-from app.domain import files, library, versions
-from app.schemas.analysis import VersionInfo
+from app.domain import analysis, files, library, versions
+from app.domain.analysis import AnalysisRunner
+from app.schemas.analysis import AnalysisProgress, VersionInfo
 from app.schemas.cv import CandidateProfile, CvRecord, CvSummary, CvVersion
 from app.schemas.user import User
 
@@ -23,6 +24,7 @@ router = APIRouter(tags=["cvs"])
 
 Db = Annotated[AsyncDatabase, Depends(get_db)]
 CurrentUser = Annotated[User, Depends(current_user)]
+Runner = Annotated[AnalysisRunner, Depends(get_analysis)]
 
 
 class RenameBody(BaseModel):
@@ -32,6 +34,10 @@ class RenameBody(BaseModel):
 class NewVersionBody(BaseModel):
     base_version: int
     profile: CandidateProfile
+
+
+class ReanalyzeBody(BaseModel):
+    mode: str | None = None  # default: the mode of the previous analysis
 
 
 async def _get_cv(db: AsyncDatabase, user: User, cv_id: str) -> CvRecord:
@@ -50,6 +56,7 @@ async def list_cvs(user: CurrentUser, db: Db) -> list[CvSummary]:
 async def upload_cv(
     user: CurrentUser,
     db: Db,
+    runner: Runner,
     file: Annotated[UploadFile | None, File()] = None,
     name: Annotated[str | None, Form()] = None,
     mode: Annotated[str | None, Form()] = None,
@@ -78,6 +85,7 @@ async def upload_cv(
         data,
         mode=clean_mode,
     )
+    await runner.start_cv(cv)  # runs in the background; the web polls /analysis
     return cv.to_summary()
 
 
@@ -115,6 +123,23 @@ async def download_cv_file(cv_id: str, user: CurrentUser, db: Db) -> StreamingRe
         "X-Content-Type-Options": "nosniff",
     }
     return StreamingResponse(_iter_file(stream), media_type=cv.content_type, headers=headers)
+
+
+@router.get("/cvs/{cv_id}/analysis")
+async def get_cv_analysis(cv_id: str, user: CurrentUser, db: Db) -> AnalysisProgress:
+    cv = await _get_cv(db, user, cv_id)
+    return analysis.progress("cv", cv.analysis)
+
+
+@router.post("/cvs/{cv_id}/reanalyze", status_code=202)
+async def reanalyze_cv(
+    cv_id: str, user: CurrentUser, db: Db, runner: Runner, body: ReanalyzeBody | None = None
+) -> AnalysisProgress:
+    cv = await _get_cv(db, user, cv_id)
+    mode = library.parse_reanalyze_mode(body.mode if body else None, library.CV_MODES)
+    if analysis.is_active(cv.analysis):
+        return analysis.progress("cv", cv.analysis)  # already running: no second job
+    return analysis.progress("cv", await runner.start_cv(cv, mode))
 
 
 @router.get("/cvs/{cv_id}/versions")

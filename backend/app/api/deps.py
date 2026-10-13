@@ -7,6 +7,7 @@ from pymongo.asynchronous.database import AsyncDatabase
 from app.api.errors import AppError
 from app.config import Settings
 from app.domain import auth
+from app.domain.analysis import AnalysisRunner
 from app.providers.extract.base import DocumentExtractor
 from app.schemas.user import DEFAULT_USER_EMAIL, DEFAULT_USER_ID, User
 
@@ -27,6 +28,10 @@ def get_db(request: Request) -> AsyncDatabase:
 
 def get_extractor(request: Request) -> DocumentExtractor:
     return request.app.state.extractor
+
+
+def get_analysis(request: Request) -> AnalysisRunner:
+    return request.app.state.analysis
 
 
 async def optional_user(

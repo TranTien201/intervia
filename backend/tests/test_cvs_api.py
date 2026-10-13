@@ -57,7 +57,7 @@ async def test_upload_docx_and_mode_is_stored(client, db):
     stored = await db.cvs.find_one({"_id": r.json()["id"]})
     assert stored["content_type"] == DOCX
     assert stored["analysis"]["mode"] == "layout"
-    assert stored["analysis"]["step"] == "upload"
+    # `step` moves on as soon as the background analysis starts (test_analysis.py).
 
 
 async def test_upload_too_large(client):
@@ -107,10 +107,13 @@ async def test_upload_name_trimmed_and_path_stripped(client):
     assert r.json()["file_name"] == "Nguyễn Văn A.pdf"
 
 
-async def test_list_get_rename(client):
+async def test_list_get_rename(client, app):
     first = (await _upload(client, PDF_BYTES, name="Một")).json()
+    await app.state.analysis.join()  # a finished analysis also moves `updated_at`
     await asyncio.sleep(0.002)
     second = (await _upload(client, PDF_BYTES, name="Hai")).json()
+    await app.state.analysis.join()
+    first = (await client.get(f"/api/cvs/{first['id']}")).json()
 
     listed = (await client.get("/api/cvs")).json()
     assert [c["id"] for c in listed] == [second["id"], first["id"]]

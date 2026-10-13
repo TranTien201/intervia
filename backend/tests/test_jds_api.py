@@ -37,7 +37,7 @@ async def test_create_jd(client, db):
         0,
     )
     stored = await db.jds.find_one({"_id": body["id"]})
-    assert stored["analysis"]["step"] == "receive"
+    # `step` moves on as soon as the background analysis starts (test_analysis.py).
     assert stored["analysis"]["mode"] == "standard"
 
 
@@ -161,9 +161,10 @@ async def test_invalid_json(client):
     assert r.status_code == 422
 
 
-async def test_list_and_rename(client):
+async def test_list_and_rename(client, app):
     a = (await _paste(client, name="A")).json()
     b = (await _paste(client, name="B")).json()
+    await app.state.analysis.join()  # a finished analysis also moves `updated_at`
     assert {j["id"] for j in (await client.get("/api/jds")).json()} == {a["id"], b["id"]}
 
     r = await client.patch(f"/api/jds/{a['id']}", json={"name": "A2"})
