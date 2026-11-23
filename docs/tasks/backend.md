@@ -33,10 +33,16 @@
   - **Đã xong (2026-10-13):** `DELETE /api/cvs/{id}`, `DELETE /api/jds/{id}` → 204 (không có / của người khác / đã xóa → 404). `app/domain/library.py` `delete_cv`, `delete_jd`: đánh dấu `deleting` → (BE-8: phiên) → `*_versions` → file GridFS → document chính cuối cùng; đứt giữa chừng thì gọi xóa lại sẽ hoàn tất. Chỗ chèn bước xóa phiên (BE-8) và `llm_calls` (BE-4.4) đã ghi chú trong code. Test: `tests/test_delete_api.py`.
 
 ## BE-3. Lớp provider LLM (AI)
-- [ ] Interface `generate_structured(schema)` / `stream_text()` trong `providers/llm/`; adapter Anthropic, OpenAI, Gemini dùng structured output native; chọn bằng `LLM_PROVIDER` / `LLM_MODEL`, model riêng theo vai trò.
-- [ ] Retry khi sai schema (tối đa 2 lần); ghi `llm_calls`.
-- [ ] Prompt có version trong `prompts/`; dữ liệu ứng viên bọc thẻ XML.
-- [ ] Provider giả cho test (trả output cố định).
+**Chi tiết: `backend-llm.md`** (quyết định D1–D8 ở mục 0.2 cần chốt trước khi làm).
+- [x] BE-3.1. Interface, adapter fake, `LlmService` (validate, retry khi sai schema, timeout, hủy)
+  - **Đã xong (2026-10-28):** `app/providers/llm/base.py` (interface, `LlmError`), `fake.py` (`FakeLlm`: kịch bản theo schema, stream, chậm/treo/lỗi; không có kịch bản thì trả output hợp lệ tối thiểu), `app/domain/llm.py` (`LlmService`: chọn endpoint theo vai trò hoặc bản chụp, validate Pydantic, retry sai schema tối đa 2 lần, retry lỗi tạm thời ở service thay vì adapter, timeout theo vai trò, stream có mốc chữ đầu + tổng, hủy/đóng stream ghi `cancelled`, `warmup`). Ghi lời gọi qua hàm truyền vào (`LlmCallLog`), BE-3.2 nối DB. `LlmRole` đã thêm A3–A6, `LlmCallRef.kind` thêm `session`. Test: `tests/test_llm_service.py`.
+- [x] BE-3.2. Cấu hình `llm.yaml` theo vai trò, bản chụp theo phiên, mở rộng `llm_calls`
+  - **Đã xong (2026-11-23):** `app/schemas/llm_config.py` (`LlmConfig`, `EndpointConfig` có đặc tính và giá trị mặc định theo `kind`, `RoleSettings`, `load_llm_config`: không có file thì dùng fake, prod thì không khởi động; chỉ endpoint đang dùng mới cần key), `backend/llm.example.yaml` (`llm.yaml` vào `.gitignore`), `Settings.llm_config_path` + `Settings.env()` (đọc key từ `.env`), `app/providers/llm/__init__.py` (`create_llm_registry`), `app.state.llm` tạo trong `lifespan`, ghi `llm_calls` vào MongoDB. `LlmService.snapshot()` (D5; lưu vào phiên ở BE-6). `llm_calls` thêm `endpoint`, `input` (D6), `transient_retries`, `first_token_ms`, `billing`, `est_cost_usd`, trạng thái `timeout`/`cancelled`, `schema_version` 2; bản ghi A1/A2 cũ vẫn đọc được. Thêm `pyyaml`, `python-dotenv`. Test: `tests/test_llm_config.py`.
+- [ ] BE-3.3. Ghép prompt, bọc dữ liệu không tin cậy
+- [ ] BE-3.4. Adapter `openai_compat` (thử với OpenAI)
+- [ ] BE-3.5. Serving model trên Modal (`serving/modal/`: vLLM, API tương thích OpenAI, có khóa)
+- [ ] BE-3.6. Nối backend với Modal: khóa, warmup, đo cold start / độ trễ / tỉ lệ đúng schema
+- [ ] BE-3.7. Adapter `gemini` + cập nhật CLAUDE.md, README, `agents.md`
 
 ## BE-4. Phân tích CV/JD (A1, A2) bằng LlamaExtract
 **Chi tiết: `backend-cv-jd.md`.** Thiết kế: `docs/design/extraction.md`.

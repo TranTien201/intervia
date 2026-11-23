@@ -1,0 +1,49 @@
+# LLM endpoints and which endpoint + model each role uses (docs/tasks/backend-llm.md, BE-3.2).
+# Copy to llm.yaml (git-ignored) and adjust. No llm.yaml: every role uses the fake provider
+# (refused when APP_ENV=prod). Keys never go here: `api_key_env` names the variable in .env.
+#
+# Adapters available today: fake. openai_compat comes with BE-3.4, gemini with BE-3.7; an
+# endpoint of those kinds only works once its adapter exists.
+
+endpoints:
+  fake:
+    kind: fake
+
+  openai:
+    kind: openai_compat
+    api_key_env: OPENAI_API_KEY
+    # price_per_mtok: { input: 0.0, output: 0.0 }   # USD per million tokens, for est_cost_usd
+
+  # Self-served model on Modal (vLLM, OpenAI-compatible API; BE-3.5, BE-3.6).
+  # modal-qwen:
+  #   kind: openai_compat
+  #   base_url: https://<workspace>--<app>.modal.run/v1
+  #   api_key_env: MODAL_LLM_API_KEY
+  #   strict_schema: false        # vLLM has no OpenAI "strict" mode
+  #   scales_to_zero: true        # warmup() wakes it; longer connect timeout
+  #   billing: gpu_time
+
+  gemini:
+    kind: gemini
+    api_key_env: GEMINI_API_KEY
+
+  # Other endpoint traits, with their defaults:
+  #   base_url: (the provider's own)
+  #   headers_env: {}                  # {Header-Name: ENV_VAR}
+  #   structured_output: json_schema   # json_schema | json_object | none (text streams only)
+  #   strict_schema: true for openai_compat, false otherwise
+  #   stream_usage: true
+  #   scales_to_zero: false
+  #   max_context_tokens: (none)
+  #   billing: per_token (free for fake)   # per_token | gpu_time | free
+
+# Roles not listed in `roles` use this.
+default: { endpoint: fake, model: fake }
+
+# A3_blueprint, A4_intent, A5_turn_planner, A6_speaker. Per role: endpoint, model, and
+# optionally temperature, max_output_tokens (4096), timeout_s, first_token_timeout_s.
+# Default timeouts (s): A3 90, A4 3, A5 8, A6 30 in total / 5 to the first chunk.
+roles: {}
+  # A3_blueprint:    { endpoint: openai, model: <model> }
+  # A4_intent:       { endpoint: openai, model: <small model>, timeout_s: 3 }
+  # A6_speaker:      { endpoint: gemini, model: <model>, temperature: 0.7 }

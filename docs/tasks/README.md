@@ -8,6 +8,7 @@
 | `ui.md` | Web frontend (`web/`): khung dự án, thành phần dùng chung, từng trang, voice | Chi tiết, làm được ngay |
 | `backend.md` | Backend + AI (`backend/`): API, DB, provider LLM/STT/TTS, các vai trò A1–A6, voice | Mức đầu việc, chi tiết hóa khi bắt đầu |
 | `backend-cv-jd.md` | Chi tiết BE-2 + BE-4: thư viện CV & JD, trích xuất bằng LlamaExtract | Chi tiết, giao việc được ngay |
+| `backend-llm.md` | Chi tiết BE-3: lớp provider LLM (OpenAI, Gemini, model tự serving trên Modal) | Chi tiết, chờ chốt quyết định D1–D8 |
 
 ## 1. Thư mục: tách UI, backend, AI
 

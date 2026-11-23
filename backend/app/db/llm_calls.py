@@ -43,3 +43,9 @@ async def find_reusable(
 
 async def delete_for_ref(db: AsyncDatabase, kind: str, ref_id: str) -> None:
     await db[COLLECTION].delete_many({"ref.kind": kind, "ref.id": ref_id})
+
+
+async def list_for_ref(db: AsyncDatabase, kind: str, ref_id: str) -> list[LlmCallRecord]:
+    """Calls made for one CV / JD / session, oldest first."""
+    cursor = db[COLLECTION].find({"ref.kind": kind, "ref.id": ref_id}).sort("created_at", 1)
+    return [_to_record(doc) async for doc in cursor]

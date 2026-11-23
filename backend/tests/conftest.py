@@ -13,7 +13,14 @@ TEST_DB = "intervia_test"
 def settings() -> Settings:
     # Same URI as dev, separate database that tests may drop freely.
     # Login off by default whatever .env says; tests that need it turn it on explicitly.
-    return Settings(app_env="test", mongodb_db=TEST_DB, mongodb_timeout_ms=2000, auth_enabled=False)
+    # No llm.yaml: every LLM role on the fake provider, whatever the dev machine has.
+    return Settings(
+        app_env="test",
+        mongodb_db=TEST_DB,
+        mongodb_timeout_ms=2000,
+        auth_enabled=False,
+        llm_config_path=None,
+    )
 
 
 @pytest.fixture(scope="session")

@@ -1,6 +1,8 @@
+import os
 from functools import lru_cache
 from typing import Literal
 
+from dotenv import dotenv_values
 from pydantic import Field, SecretStr, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -42,11 +44,22 @@ class Settings(BaseSettings):
     # Background analyses running at once (BE-4.7); later ones wait, shown as `pending`.
     analysis_max_concurrency: int = Field(default=3, ge=1)
 
+    # LLM endpoints and role → endpoint + model (BE-3.2). Missing file: every role uses the
+    # fake provider (refused when APP_ENV=prod). Example: `llm.example.yaml`.
+    llm_config_path: str | None = "llm.yaml"
+
     @model_validator(mode="after")
     def _check_extractor_key(self) -> "Settings":
         if self.extractor_provider == "llamacloud" and not self.llama_cloud_api_key:
             raise ValueError("EXTRACTOR_PROVIDER=llamacloud needs LLAMA_CLOUD_API_KEY")
         return self
+
+    def env(self) -> dict[str, str]:
+        """Environment variables, `.env` included: the keys `llm.yaml` refers to by name are
+        read from here (real environment variables win, as for the settings above)."""
+        file = self.model_config.get("env_file")
+        from_file = dotenv_values(file) if isinstance(file, str) else {}
+        return {**{k: v for k, v in from_file.items() if v is not None}, **os.environ}
 
     @property
     def cors_origin_list(self) -> list[str]:
